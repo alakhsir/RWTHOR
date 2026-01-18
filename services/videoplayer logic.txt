@@ -1,0 +1,523 @@
+// --- Video Player Logic ---
+  useEffect(() => {
+    // Reset state when video changes
+    setIsPlaying(false);
+    setVideoError(false);
+    setSeekAnimation(null);
+    setIsLoading(true);
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleTimeUpdate = () => {
+        setCurrentTime(video.currentTime);
+        setIsLoading(false);
+    };
+    const handleLoadedMetadata = () => {
+        setDuration(video.duration);
+        setIsLoading(false);
+    };
+    const handleEnded = () => setIsPlaying(false);
+    const handleWaiting = () => setIsLoading(true);
+    const handlePlaying = () => setIsLoading(false);
+    const handleError = () => {
+        setVideoError(true);
+        setIsLoading(false);
+    };
+
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('ended', handleEnded);
+    video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('playing', handlePlaying);
+    video.addEventListener('error', handleError);
+
+    return () => {
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('waiting', handleWaiting);
+      video.removeEventListener('playing', handlePlaying);
+      video.removeEventListener('error', handleError);
+    };
+  }, [activeVideo]);
+
+  // Keyboard Shortcuts for Video
+  useEffect(() => {
+    if (!activeVideo) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Prevent default scrolling for Space/Arrows when video is active
+      if ([' ', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
+         e.preventDefault();
+      }
+
+      if (!videoRef.current) return;
+      
+      switch(e.key.toLowerCase()) {
+        case ' ':
+        case 'k':
+          togglePlay();
+          break;
+        case 'arrowright':
+          seek(10);
+          break;
+        case 'arrowleft':
+          seek(-10);
+          break;
+        case 'f':
+          toggleFullscreen();
+          break;
+        case 'm':
+          toggleMute();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeVideo, isPlaying, isFullscreen, isMuted]);
+
+  const togglePlay = () => {
+    if (videoRef.current && !videoError) {
+      if (isPlaying) videoRef.current.pause();
+      else videoRef.current.play();
+      setIsPlaying(!isPlaying);
+      handleUserInteraction();
+    }
+  };
+
+  const seek = (seconds: number) => {
+    if (videoRef.current && !videoError) {
+      videoRef.current.currentTime += seconds;
+      handleUserInteraction();
+      
+      setSeekAnimation(null); 
+      setTimeout(() => setSeekAnimation(seconds > 0 ? 'forward' : 'backward'), 10);
+      setTimeout(() => setSeekAnimation(null), 600); 
+    }
+  };
+
+  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = Number(e.target.value);
+    if (videoRef.current && !videoError) {
+      videoRef.current.currentTime = time;
+      setCurrentTime(time);
+    }
+  };
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+    }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    setVolume(val);
+    if (videoRef.current) {
+      videoRef.current.volume = val;
+      setIsMuted(val === 0);
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (!playerContainerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      playerContainerRef.current.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  const handleSpeedChange = (speed: number) => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = speed;
+      setPlaybackSpeed(speed);
+      setSettingsView('main'); 
+    }
+  };
+
+  const handleQualityChange = (quality: string) => {
+      setVideoQuality(quality);
+      setSettingsView('main');
+  };
+
+  const handleUserInteraction = () => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (isPlaying && !showSettings) setShowControls(false);
+    }, 3000);
+  };
+
+  const formatVideoTime = (time: number) => {
+    if (isNaN(time)) return "0:00";
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+
+  // --- Quiz Handlers ---
+  const handleStartQuiz = (item: ContentItem) => {
+    setActiveQuiz(item);
+    setCurrentQuestionIndex(0);
+    setSelectedAnswers({});
+    setVisitedQuestions(new Set([0]));
+    setQuizSubmitted(false);
+    let durationSeconds = 45 * 60; 
+    if (item.duration) {
+       const match = item.duration.match(/(\d+)m/);
+       if (match) durationSeconds = parseInt(match[1]) * 60;
+    }
+    setTimeLeft(durationSeconds);
+  };
+
+  useEffect(() => {
+    if (activeQuiz && !quizSubmitted) {
+        setVisitedQuestions(prev => { const newSet = new Set(prev); newSet.add(currentQuestionIndex); return newSet; });
+    }
+  }, [currentQuestionIndex, activeQuiz, quizSubmitted]);
+
+  useEffect(() => {
+    if (!activeQuiz || quizSubmitted || timeLeft <= 0) return;
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) { clearInterval(timer); setQuizSubmitted(true); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [activeQuiz, quizSubmitted, timeLeft]);
+
+  const formatTime = (seconds: number) => {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      return `${h > 0 ? h + ':' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const formatText = (text: string) => {
+      if (!text) return { __html: '' };
+      let formatted = text
+        .replace(/\^\{([^}]+)\}/g, '<sup>$1</sup>')
+        .replace(/\^([a-zA-Z0-9]+)/g, '<sup>$1</sup>')
+        .replace(/_\{([^}]+)\}/g, '<sub>$1</sub>')
+        .replace(/_([a-zA-Z0-9]+)/g, '<sub>$1</sub>')
+        .replace(/\\deg/g, '&deg;');
+      return { __html: formatted };
+  };
+
+  const handleOptionSelect = (optionIndex: number) => {
+    if (quizSubmitted) return;
+    setSelectedAnswers(prev => ({ ...prev, [currentQuestionIndex]: optionIndex }));
+  };
+
+  const calculateScore = () => {
+    if (!activeQuiz?.quizData) return 0;
+    let score = 0;
+    activeQuiz.quizData.forEach((q, idx) => {
+      if (selectedAnswers[idx] === q.correctOptionIndex) score += 4;
+      else if (selectedAnswers[idx] !== undefined) score -= 1;
+    });
+    return score;
+  };
+
+  if (!chapter) return <div>Chapter not found</div>;
+
+  // --- RENDER CUSTOM VIDEO PLAYER ---
+  if (activeVideo) {
+    return (
+      <div className="fixed inset-0 bg-black z-50 flex flex-col animate-in fade-in duration-300">
+        
+        {/* Inject Styles for Animations */}
+        <style>{`
+          @keyframes ripple {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            40% { transform: translate(-50%, -50%) scale(1.0); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+          }
+          .animate-ripple {
+            animation: ripple 0.6s ease-out forwards;
+          }
+          .settings-scroll::-webkit-scrollbar {
+            width: 4px;
+          }
+          .settings-scroll::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05); 
+          }
+          .settings-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2); 
+            border-radius: 4px;
+          }
+          /* Hide scrollbar for settings */
+          .no-scrollbar::-webkit-scrollbar {
+            display: none;
+          }
+          .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+        `}</style>
+
+        {/* Top Header Overlay */}
+        <div className={`absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/90 to-transparent z-30 flex items-start pt-6 px-6 pointer-events-none transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+           <div className="pointer-events-auto flex items-center gap-4 w-full">
+             <button onClick={() => setActiveVideo(null)} className="text-white/90 hover:bg-white/10 p-2 rounded-full transition-colors">
+               <ChevronLeft size={28} />
+             </button>
+             <div className="flex-1">
+                <h2 className="text-white font-bold text-lg leading-tight line-clamp-1 drop-shadow-md">{activeVideo.title}</h2>
+             </div>
+           </div>
+        </div>
+
+        {/* Video Area */}
+        <div 
+            ref={playerContainerRef}
+            className="flex-1 relative bg-black flex items-center justify-center group outline-none overflow-hidden"
+            onMouseMove={handleUserInteraction}
+            onClick={handleUserInteraction}
+            onMouseLeave={() => isPlaying && !showSettings && setShowControls(false)}
+        >
+            {videoError ? (
+                <div className="flex flex-col items-center justify-center text-red-500 gap-4 p-8 text-center">
+                    <AlertTriangle size={48} />
+                    <div>
+                        <h3 className="text-xl font-bold text-white mb-2">Video Playback Error</h3>
+                        <p className="text-gray-400">The video could not be loaded. Please check the URL or try again later.</p>
+                        <p className="text-gray-500 text-xs mt-4">Tip: Ensure you are using a direct link (MP4) not an embed page.</p>
+                    </div>
+                    <button onClick={() => setActiveVideo(null)} className="mt-4 bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-lg">Close Player</button>
+                </div>
+            ) : (
+                <>
+                    <video 
+                        ref={videoRef}
+                        src={activeVideo.url} 
+                        poster={activeVideo.thumbnailUrl}
+                        className="w-full h-full max-h-screen object-contain"
+                        onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                        autoPlay
+                        playsInline
+                        crossOrigin="anonymous"
+                    >
+                        <source src={activeVideo.url} type="video/mp4" />
+                        Your browser does not support the video tag.
+                    </video>
+
+                    {/* Loading Spinner */}
+                    {isLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* Seek Animation Overlays */}
+            {!videoError && seekAnimation === 'backward' && (
+                <div className="absolute left-[25%] top-1/2 flex flex-col items-center pointer-events-none animate-ripple z-40 transform -translate-x-1/2 -translate-y-1/2">
+                    <div className="bg-black/60 p-6 rounded-full backdrop-blur-sm">
+                       <ChevronsLeft size={40} className="text-white drop-shadow-lg" />
+                    </div>
+                    <span className="text-white font-bold text-sm mt-2 drop-shadow-md bg-black/40 px-2 py-0.5 rounded">-10s</span>
+                </div>
+            )}
+            {!videoError && seekAnimation === 'forward' && (
+                <div className="absolute left-[75%] top-1/2 flex flex-col items-center pointer-events-none animate-ripple z-40 transform -translate-x-1/2 -translate-y-1/2">
+                    <div className="bg-black/60 p-6 rounded-full backdrop-blur-sm">
+                       <ChevronsRight size={40} className="text-white drop-shadow-lg" />
+                    </div>
+                    <span className="text-white font-bold text-sm mt-2 drop-shadow-md bg-black/40 px-2 py-0.5 rounded">+10s</span>
+                </div>
+            )}
+
+
+            {/* CENTER CONTROLS */}
+            {!videoError && (
+                <div className={`absolute inset-0 flex items-center justify-center z-20 pointer-events-none transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className="flex items-center gap-8 md:gap-16 pointer-events-auto">
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); seek(-10); }}
+                            className="text-white/80 hover:text-white hover:bg-black/40 p-4 rounded-full transition-all transform hover:scale-110 active:scale-95"
+                        >
+                            <RotateCcw className="w-8 h-8 md:w-10 md:h-10" />
+                        </button>
+
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                            className="w-16 h-16 md:w-20 md:h-20 bg-primary/90 hover:bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform"
+                        >
+                            {isPlaying ? <Pause size={32} fill="white"/> : <Play size={32} fill="white" className="ml-1"/>}
+                        </button>
+
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); seek(10); }}
+                            className="text-white/80 hover:text-white hover:bg-black/40 p-4 rounded-full transition-all transform hover:scale-110 active:scale-95"
+                        >
+                            <RotateCw className="w-8 h-8 md:w-10 md:h-10" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Bottom Controls Bar */}
+            {!videoError && (
+                <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent px-4 pb-4 pt-10 z-30 transition-all duration-300 ${showControls ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'}`}>
+                    
+                    {/* Progress Bar */}
+                    <div className="group/slider relative w-full h-1 hover:h-2 bg-gray-600/60 cursor-pointer mb-3 rounded-full transition-all touch-none">
+                        <div 
+                            className="absolute top-0 left-0 h-full bg-primary rounded-full transition-all relative"
+                            style={{ width: `${(currentTime / duration) * 100}%` }}
+                        >
+                            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow scale-0 group-hover/slider:scale-100 transition-transform"></div>
+                        </div>
+                        <input 
+                            type="range" 
+                            min="0" 
+                            max={duration || 100} 
+                            value={currentTime} 
+                            onChange={handleSeekChange}
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        />
+                    </div>
+
+                    {/* Control Row */}
+                    <div className="flex items-center justify-between text-white select-none">
+                        
+                        {/* Left Section */}
+                        <div className="flex items-center gap-4">
+                            <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="hover:text-primary transition-colors">
+                                {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
+                            </button>
+                            
+                            {/* Volume */}
+                            <div className="flex items-center gap-2 group/vol">
+                                <button onClick={(e) => { e.stopPropagation(); toggleMute(); }} className="hover:text-primary">
+                                    {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                                </button>
+                                <div className="w-0 overflow-hidden group-hover/vol:w-20 transition-all duration-300">
+                                    <input 
+                                        type="range" min="0" max="1" step="0.1" 
+                                        value={isMuted ? 0 : volume} onChange={handleVolumeChange}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="h-1 bg-gray-500 rounded-full accent-white cursor-pointer w-20"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Time */}
+                            <div className="text-xs font-mono font-medium text-gray-300">
+                                {formatVideoTime(currentTime)} / {formatVideoTime(duration)}
+                            </div>
+                        </div>
+
+                        {/* Right Section */}
+                        <div className="flex items-center gap-4 relative">
+                            {/* Settings Button */}
+                            <div className="relative">
+                                <button 
+                                    onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        setShowSettings(!showSettings); 
+                                        setSettingsView('main');
+                                    }} 
+                                    className={`flex items-center gap-1 text-sm font-bold px-3 py-1.5 rounded-full transition-all ${showSettings ? 'bg-white text-black scale-105' : 'bg-white/10 hover:bg-white/20'}`}
+                                >
+                                    <Settings size={18} className={`transition-transform duration-500 ${showSettings ? 'rotate-90' : ''}`} />
+                                    <span className="hidden sm:inline">Settings</span>
+                                </button>
+
+                                {/* Multi-level Settings Menu */}
+                                {showSettings && (
+                                    <div className="absolute bottom-full right-0 mb-4 w-64 bg-[#1e1e24] border border-gray-700/50 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 zoom-in-95 duration-200 z-50 origin-bottom-right">
+                                        
+                                        {/* Main Menu */}
+                                        {settingsView === 'main' && (
+                                            <div className="py-2">
+                                                <div className="px-4 py-2 border-b border-gray-700/50 mb-1">
+                                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Settings</h3>
+                                                </div>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setSettingsView('speed'); }}
+                                                    className="w-full flex justify-between items-center px-4 py-3 text-sm text-gray-200 hover:bg-white/10 transition-colors"
+                                                >
+                                                    <div className="flex items-center gap-3"><Clock size={18} className="text-gray-400"/> Playback Speed</div>
+                                                    <div className="flex items-center gap-1 text-gray-400 text-xs font-medium">{playbackSpeed === 1 ? 'Normal' : playbackSpeed + 'x'} <ChevronRight size={14}/></div>
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setSettingsView('quality'); }}
+                                                    className="w-full flex justify-between items-center px-4 py-3 text-sm text-gray-200 hover:bg-white/10 transition-colors"
+                                                >
+                                                    <div className="flex items-center gap-3"><Zap size={18} className="text-gray-400"/> Quality</div>
+                                                    <div className="flex items-center gap-1 text-gray-400 text-xs font-medium">{videoQuality} <ChevronRight size={14}/></div>
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Speed Menu */}
+                                        {settingsView === 'speed' && (
+                                            <div className="py-1">
+                                                <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-700/50 bg-black/20">
+                                                    <button onClick={(e) => { e.stopPropagation(); setSettingsView('main'); }} className="p-1 hover:bg-white/10 rounded-full transition-colors"><ArrowLeft size={16} /></button>
+                                                    <span className="text-sm font-bold">Playback Speed</span>
+                                                </div>
+                                                <div className="max-h-60 overflow-y-auto settings-scroll p-1">
+                                                    {[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map(speed => (
+                                                        <button 
+                                                            key={speed}
+                                                            onClick={(e) => { e.stopPropagation(); handleSpeedChange(speed); }}
+                                                            className={`w-full text-left px-4 py-2.5 text-sm flex justify-between items-center rounded-lg mb-0.5 ${playbackSpeed === speed ? 'bg-primary text-white font-medium' : 'text-gray-300 hover:bg-white/5'}`}
+                                                        >
+                                                            <span>{speed === 1.0 ? 'Normal' : speed + 'x'}</span>
+                                                            {playbackSpeed === speed && <Check size={16} />}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Quality Menu */}
+                                        {settingsView === 'quality' && (
+                                            <div className="py-1">
+                                                <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-700/50 bg-black/20">
+                                                    <button onClick={(e) => { e.stopPropagation(); setSettingsView('main'); }} className="p-1 hover:bg-white/10 rounded-full transition-colors"><ArrowLeft size={16} /></button>
+                                                    <span className="text-sm font-bold">Quality</span>
+                                                </div>
+                                                <div className="max-h-60 overflow-y-auto settings-scroll p-1">
+                                                    {['Auto (720p)', '1080p Full HD', '720p HD', '480p', '360p', '240p'].map(quality => (
+                                                        <button 
+                                                            key={quality}
+                                                            onClick={(e) => { e.stopPropagation(); handleQualityChange(quality); }}
+                                                            className={`w-full text-left px-4 py-2.5 text-sm flex justify-between items-center rounded-lg mb-0.5 ${videoQuality === quality ? 'bg-primary text-white font-medium' : 'text-gray-300 hover:bg-white/5'}`}
+                                                        >
+                                                            <span>{quality}</span>
+                                                            {videoQuality === quality && <Check size={16} />}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="hover:text-primary p-1.5 hover:bg-white/10 rounded-full transition-colors">
+                                {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+      </div>
+    );
+  }

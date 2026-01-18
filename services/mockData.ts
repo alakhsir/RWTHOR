@@ -24,6 +24,7 @@ export let batches: Batch[] = [
     endDate: '21 Dec 2024',
     validityDate: '30 June 2025',
     enrolled: true,
+    newContentCount: 3,
     subjectIds: ['s1', 's2', 's3', 's4', 's5'],
     features: [
       'Online lectures',
@@ -152,29 +153,29 @@ export let mockContent: Record<string, ContentItem[]> = {
       duration: '45m',
       status: 'In Progress',
       quizData: [
-        { 
-          id: 'q1_1', 
-          text: 'What is the value of \\int x^2 dx?', 
-          options: ['2x + c', 'x^3/3 + c', 'x^2 + c', '2'], 
-          correctOptionIndex: 1 
+        {
+          id: 'q1_1',
+          text: 'What is the value of \\int x^2 dx?',
+          options: ['2x + c', 'x^3/3 + c', 'x^2 + c', '2'],
+          correctOptionIndex: 1
         },
-        { 
-          id: 'q1_2', 
-          text: 'The value of sin(90\\deg) + cos(0\\deg) is?', 
-          options: ['0', '1', '2', '0.5'], 
-          correctOptionIndex: 2 
+        {
+          id: 'q1_2',
+          text: 'The value of sin(90\\deg) + cos(0\\deg) is?',
+          options: ['0', '1', '2', '0.5'],
+          correctOptionIndex: 2
         },
-        { 
-          id: 'q1_3', 
-          text: 'Derivative of log_{10}(x)?', 
-          options: ['1/x', '1/(x ln 10)', 'e^x', '1'], 
-          correctOptionIndex: 1 
+        {
+          id: 'q1_3',
+          text: 'Derivative of log_{10}(x)?',
+          options: ['1/x', '1/(x ln 10)', 'e^x', '1'],
+          correctOptionIndex: 1
         },
-        { 
-          id: 'q1_4', 
-          text: 'Which chemical formula represents water?', 
-          options: ['HO_2', 'H_2O', 'CO_2', 'H_2O_2'], 
-          correctOptionIndex: 1 
+        {
+          id: 'q1_4',
+          text: 'Which chemical formula represents water?',
+          options: ['HO_2', 'H_2O', 'CO_2', 'H_2O_2'],
+          correctOptionIndex: 1
         },
         {
           id: 'q1_5',

@@ -23,6 +23,7 @@ export interface Batch {
   endDate: string;
   validityDate: string; // New field
   enrolled: boolean;
+  newContentCount?: number; // Count of new videos/content for notification badge
   features: string[];
   subjectIds: string[]; // Linked subjects
 }
