@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Plus, X, Upload } from 'lucide-react';
-import { addBatch, addSubject, availableSubjects } from '../../services/mockData';
+import { api } from '../../services/api';
+import { addSubject, availableSubjects } from '../../services/mockData';
 import { Batch } from '../../types';
 
 export const CreateBatch = () => {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -15,14 +17,27 @@ export const CreateBatch = () => {
     endDate: '',
     validityDate: '',
     price: '',
+    originalPrice: '', // Added manual control
     isFree: false,
-    imageUrl: 'https://picsum.photos/seed/new/400/200', // Mock upload
+    imageUrl: 'https://picsum.photos/seed/new/400/200', // Default placeholder
     language: 'Hinglish',
   });
 
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [features, setFeatures] = useState<string[]>(['Online lectures', 'DPPs and Test with Solutions']);
   const [newFeature, setNewFeature] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Auto-set original price if price changes (convenience)
+  useEffect(() => {
+    const p = Number(formData.price);
+    if (!formData.originalPrice && p > 0) {
+        setFormData(prev => ({ ...prev, originalPrice: String(p + 2000) }));
+    }
+    if (!formData.originalPrice && p === 0) {
+        setFormData(prev => ({ ...prev, originalPrice: '4999' }));
+    }
+  }, [formData.price]);
 
   const toggleSubject = (subName: string) => {
     if (selectedSubjects.includes(subName)) {
@@ -43,30 +58,37 @@ export const CreateBatch = () => {
     setFeatures(features.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            if (reader.result) {
+                setFormData(prev => ({ ...prev, imageUrl: reader.result as string }));
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newBatchId = `b${Date.now()}`;
+    setIsSubmitting(true);
     
-    // Create Subject objects for the new batch
-    selectedSubjects.forEach((subName, index) => {
-        addSubject({
-            id: `s${Date.now()}-${index}`,
-            name: subName,
-            icon: availableSubjects.find(s => s.name === subName)?.icon || 'Book',
-            chapterCount: 0,
-            batchId: newBatchId
-        });
-    });
+    // 1. Prepare Batch Object
+    const priceValue = Number(formData.price);
+    const originalPriceValue = Number(formData.originalPrice);
+    const isFree = priceValue === 0;
 
     const newBatch: Batch = {
-      id: newBatchId,
+      id: `b${Date.now()}`, // Temporary ID, DB generates its own if Real DB
       title: formData.title,
-      description: 'Generated Description',
+      description: 'Comprehensive batch covering all required topics.',
       imageUrl: formData.imageUrl,
       tags: ['New', formData.language],
-      price: Number(formData.price),
-      originalPrice: Number(formData.price) + 2000,
-      isFree: Number(formData.price) === 0,
+      price: priceValue,
+      originalPrice: originalPriceValue,
+      isFree: isFree,
       class: formData.class,
       language: formData.language,
       startDate: formData.startDate,
@@ -74,11 +96,45 @@ export const CreateBatch = () => {
       validityDate: formData.validityDate,
       enrolled: false,
       features: features,
-      subjectIds: [] // We use the relational subjects array instead
+      subjectIds: [] 
     };
     
-    addBatch(newBatch); 
-    navigate('/admin');
+    try {
+        // 2. Create Batch
+        const createdBatchData = await api.createBatch(newBatch);
+        const createdBatchId = createdBatchData?.[0]?.id; // Get real ID from DB
+
+        // 3. Create Subjects (If Real ID exists, meaning we used DB)
+        if (createdBatchId) {
+            for (const subName of selectedSubjects) {
+                await api.createSubject({
+                    name: subName,
+                    icon: availableSubjects.find(s => s.name === subName)?.icon || 'Book',
+                    batchId: createdBatchId
+                });
+            }
+        } else {
+             // Fallback for Mock Data mode where createBatch returns null/void or array without IDs
+             // We use the ID we generated manually if API didn't return one
+             const batchIdToUse = createdBatchId || newBatch.id;
+             selectedSubjects.forEach((subName, index) => {
+                addSubject({
+                    id: `s${Date.now()}-${index}`,
+                    name: subName,
+                    icon: availableSubjects.find(s => s.name === subName)?.icon || 'Book',
+                    chapterCount: 0,
+                    batchId: batchIdToUse
+                });
+            });
+        }
+
+        navigate('/admin');
+    } catch (error: any) {
+        console.error("Error creating batch:", error);
+        alert(`Failed to create batch: ${error.message || 'Unknown Error'}`);
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (
@@ -208,14 +264,48 @@ export const CreateBatch = () => {
                     />
                     <p className="text-xs text-gray-500 mt-1">Set 0 for Free Batch</p>
                  </div>
+                 
+                 <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Original Price (Strike-through)</label>
+                    <input 
+                        type="number" 
+                        className="w-full bg-background border border-border rounded-lg px-4 py-3 focus:border-primary focus:outline-none text-gray-400"
+                        placeholder="e.g. 4999"
+                        value={formData.originalPrice}
+                        onChange={e => setFormData({...formData, originalPrice: e.target.value})}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Shows as <span className="line-through decoration-red-500">₹{formData.originalPrice || '4999'}</span></p>
+                 </div>
             </div>
 
             <div className="bg-surface border border-border p-6 rounded-xl space-y-4">
                  <h3 className="text-lg font-semibold border-b border-border pb-2">Thumbnail</h3>
-                 <div className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-center hover:border-gray-500 transition-colors cursor-pointer bg-background">
-                    <Upload className="text-gray-400 mb-2" size={24} />
-                    <p className="text-sm text-gray-400">Click to upload or drag & drop</p>
-                    <span className="text-xs text-gray-600 mt-1">JPG, PNG (Max 2MB)</span>
+                 <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-center hover:border-gray-500 transition-colors cursor-pointer bg-background relative overflow-hidden group"
+                 >
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleImageUpload} 
+                        className="hidden" 
+                        accept="image/*"
+                    />
+                    
+                    {formData.imageUrl && !formData.imageUrl.includes('picsum') ? (
+                        <>
+                            <img src={formData.imageUrl} alt="Thumbnail Preview" className="w-full h-full max-h-48 object-cover rounded-md" />
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <p className="text-white font-bold text-sm">Click to Change</p>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <Upload className="text-gray-400 mb-2" size={24} />
+                            <p className="text-sm text-gray-400">Click to upload or drag & drop</p>
+                            <span className="text-xs text-gray-600 mt-1">JPG, PNG (Max 2MB)</span>
+                        </>
+                    )}
                  </div>
             </div>
 
@@ -239,9 +329,10 @@ export const CreateBatch = () => {
 
             <button 
                 type="submit"
-                className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-all transform hover:scale-[1.02]"
+                disabled={isSubmitting}
+                className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-all transform hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
             >
-                <Save size={20} /> Create Batch
+                {isSubmitting ? 'Creating...' : <><Save size={20} /> Create Batch</>}
             </button>
         </div>
 

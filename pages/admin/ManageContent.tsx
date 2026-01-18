@@ -1,14 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronRight, Plus, FolderPlus, FileVideo, FileText, HelpCircle, ArrowLeft, Trash2, Video, Clock, Link, Hash, X, User, Image, Filter, CheckCircle, Circle } from 'lucide-react';
-import { batches, subjects, chapters, mockContent, addSubject, addChapter, addContent } from '../../services/mockData';
-import { ContentType, QuizQuestion } from '../../types';
+import { ChevronRight, Plus, FolderPlus, FileVideo, FileText, HelpCircle, ArrowLeft, Trash2, Video, Clock, Link, Hash, X, User, Image, Filter, CheckCircle, Circle, Loader2 } from 'lucide-react';
+import { api } from '../../services/api';
+import { Batch, Subject, Chapter, ContentItem, ContentType, QuizQuestion } from '../../types';
 
 export const ManageContent = () => {
   const navigate = useNavigate();
   const { batchId } = useParams();
   
-  const batch = batches.find(b => b.id === batchId);
+  // Async Data State
+  const [batch, setBatch] = useState<Batch | null>(null);
+  const [subjectsList, setSubjectsList] = useState<Subject[]>([]);
+  const [chaptersList, setChaptersList] = useState<Chapter[]>([]);
+  const [contentList, setContentList] = useState<ContentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // UI State
   const [activeSubject, setActiveSubject] = useState<string | null>(null);
   const [activeChapter, setActiveChapter] = useState<string | null>(null);
   const [contentFilter, setContentFilter] = useState<string>('ALL');
@@ -22,6 +29,9 @@ export const ManageContent = () => {
   const [newChapterOrder, setNewChapterOrder] = useState('1');
 
   const [showAddContent, setShowAddContent] = useState<ContentType | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
+
   const [contentForm, setContentForm] = useState({
       title: '',
       url: '',
@@ -36,68 +46,228 @@ export const ManageContent = () => {
   // --- QUIZ BUILDER STATE ---
   const [quizBuilderQuestions, setQuizBuilderQuestions] = useState<QuizQuestion[]>([]);
   const [currentQuestionText, setCurrentQuestionText] = useState('');
-  const [currentQuestionImage, setCurrentQuestionImage] = useState(''); // New State for Image
+  const [currentQuestionImage, setCurrentQuestionImage] = useState(''); 
   const [currentOptions, setCurrentOptions] = useState<string[]>(['', '', '', '']);
   const [correctOptionIndex, setCorrectOptionIndex] = useState<number>(0);
 
-  const currentSubjects = subjects.filter(s => s.batchId === batchId);
-  const currentChapters = activeSubject ? chapters.filter(c => c.subjectId === activeSubject).sort((a,b) => a.order - b.order) : [];
-
-  // Auto-select first subject if available
+  // --- INITIAL LOAD ---
   useEffect(() => {
-    if (currentSubjects.length > 0 && !activeSubject) {
-      setActiveSubject(currentSubjects[0].id);
-    }
-  }, [currentSubjects]);
+    const loadBatchData = async () => {
+        if (!batchId) return;
+        setLoading(true);
+        try {
+            const batchData = await api.getBatch(batchId);
+            setBatch(batchData || null);
+            await loadSubjects();
+        } catch (error) {
+            console.error("Error loading batch", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+    loadBatchData();
+  }, [batchId]);
+
+  const loadSubjects = async () => {
+      if (!batchId) return;
+      const subs = await api.getSubjects(batchId);
+      setSubjectsList(subs);
+      // Auto select first subject if none selected
+      if (subs.length > 0 && !activeSubject) {
+          setActiveSubject(subs[0].id);
+      }
+  };
+
+  // --- LOAD CHAPTERS WHEN SUBJECT CHANGES ---
+  useEffect(() => {
+      const loadChapters = async () => {
+          if (activeSubject) {
+              const chaps = await api.getChapters(activeSubject);
+              setChaptersList(chaps);
+          } else {
+              setChaptersList([]);
+              setActiveChapter(null);
+          }
+      };
+      loadChapters();
+  }, [activeSubject]);
+
+  // --- LOAD CONTENT WHEN CHAPTER CHANGES ---
+  useEffect(() => {
+      const loadContent = async () => {
+          if (activeChapter) {
+              const content = await api.getContent(activeChapter);
+              setContentList(content);
+          } else {
+              setContentList([]);
+          }
+      };
+      loadContent();
+  }, [activeChapter]);
+
   
-  if (!batch) return <div>Batch not found</div>;
+  if (loading) {
+      return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={40} /></div>;
+  }
 
-  // Get content for selected chapter strictly with Filter
-  const getChapterContent = () => {
-     if(!activeChapter) return [];
-     
-     const allContent = [
-        ...mockContent['lectures'] || [],
-        ...mockContent['notes'] || [],
-        ...mockContent['quizzes'] || [],
-        ...mockContent['dpp_videos'] || []
-     ];
-     
-     // Filter by current chapterId AND selected filter type
-     return allContent
-        .filter(item => item.chapterId === activeChapter)
-        .filter(item => contentFilter === 'ALL' || item.type === contentFilter)
-        .sort((a,b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
+  if (!batch) return <div className="p-10 text-center">Batch not found</div>;
+
+  // Filter Logic
+  const filteredContent = contentList
+    .filter(item => contentFilter === 'ALL' || item.type === contentFilter);
+
+
+  // --- HANDLERS ---
+
+  const handleAddSubject = async () => {
+     if(!newSubjectName || !batchId) return;
+     try {
+        await api.createSubject({
+            name: newSubjectName,
+            icon: 'Book',
+            batchId: batchId
+        });
+        await loadSubjects(); // Refresh
+        setNewSubjectName('');
+        setShowAddSubject(false);
+     } catch (e) {
+         console.error(e);
+     }
   };
 
-  const handleAddSubject = () => {
-     if(!newSubjectName) return;
-     addSubject({
-        id: `s${Date.now()}`,
-        name: newSubjectName,
-        icon: 'Book', // Default or mocked icon
-        chapterCount: 0,
-        batchId: batchId!
-     });
-     setNewSubjectName('');
-     setShowAddSubject(false);
-  };
-
-  const handleAddChapter = () => {
+  const handleAddChapter = async () => {
     if(!newChapterTitle || !activeSubject) return;
-    addChapter({
-        id: `c${Date.now()}`,
-        title: newChapterTitle,
-        subjectId: activeSubject,
-        lectureCount: 0,
-        notesCount: 0,
-        quizCount: 0,
-        order: Number(newChapterOrder) || (currentChapters.length + 1)
-    });
-    setNewChapterTitle('');
-    setNewChapterOrder(String((currentChapters.length + 2)));
-    setShowAddChapter(false);
+    try {
+        await api.createChapter({
+            title: newChapterTitle,
+            subjectId: activeSubject,
+            order: Number(newChapterOrder) || (chaptersList.length + 1)
+        });
+        // Refresh chapters
+        const chaps = await api.getChapters(activeSubject);
+        setChaptersList(chaps);
+
+        setNewChapterTitle('');
+        setNewChapterOrder(String((chaps.length + 1)));
+        setShowAddChapter(false);
+    } catch (e) {
+        console.error(e);
+    }
   };
+
+  const handleThumbnailUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Size check (max 500KB to be safe with DB inserts)
+      if (file.size > 500 * 1024) {
+          alert("Image size too large! Please select an image under 500KB.");
+          return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (reader.result) {
+          setContentForm(prev => ({ ...prev, thumbnail: reader.result as string }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddContent = async () => {
+    if(!contentForm.title || !activeChapter || !showAddContent) {
+        alert("Please fill in the title.");
+        return;
+    }
+    
+    setIsSubmitting(true);
+
+    // Quiz Count Logic - Ensure valid numbers
+    let finalQuestionCount: number | undefined = undefined;
+    if (showAddContent === ContentType.QUIZ) {
+        finalQuestionCount = quizBuilderQuestions.length;
+    } else if (contentForm.questions) {
+        const parsed = Number(contentForm.questions);
+        if (!isNaN(parsed)) finalQuestionCount = parsed;
+    }
+    
+    // Duration Logic
+    let finalDuration = contentForm.duration;
+    if (showAddContent === ContentType.QUIZ && contentForm.timeLimit) {
+        finalDuration = `${contentForm.timeLimit}m`;
+    }
+
+    // Marks Logic - Ensure valid number
+    let marksVal: number | undefined = undefined;
+    if (contentForm.marks) {
+        const parsed = Number(contentForm.marks);
+        if (!isNaN(parsed)) marksVal = parsed;
+    }
+
+    try {
+        await api.createContent({
+            id: `c_${Date.now()}`, // Temporary ID for mock; DB ignores or uses as ID
+            title: contentForm.title,
+            type: showAddContent,
+            chapterId: activeChapter,
+            url: contentForm.url || undefined,
+            duration: finalDuration || undefined,
+            teacher: contentForm.teacher || undefined,
+            thumbnailUrl: contentForm.thumbnail || undefined,
+            questions: finalQuestionCount,
+            marks: marksVal,
+            quizData: showAddContent === ContentType.QUIZ ? [...quizBuilderQuestions] : undefined
+        });
+
+        // Refresh Content
+        const content = await api.getContent(activeChapter);
+        setContentList(content);
+        
+        // Reset form
+        setContentForm({
+            title: '', url: '', duration: '', teacher: '', questions: '', marks: '', timeLimit: '', thumbnail: ''
+        });
+        setQuizBuilderQuestions([]);
+        setShowAddContent(null);
+    } catch (e: any) {
+        // Log detailed error for debugging
+        console.error("Full error object:", JSON.stringify(e, null, 2));
+        
+        let errorMsg = "Unknown error";
+        
+        if (typeof e === 'string') {
+            errorMsg = e;
+        } else if (e instanceof Error) {
+            errorMsg = e.message;
+        } else if (e && typeof e === 'object') {
+            // Handle Supabase error object structure or generic object
+            // Prioritize known Supabase fields: message, error_description, details, hint
+            const msg = e.message || e.error_description || e.details || e.hint;
+            if (msg) {
+                errorMsg = String(msg);
+            } else {
+                try {
+                    errorMsg = JSON.stringify(e);
+                } catch (jsonErr) {
+                    errorMsg = "Object (could not stringify)";
+                }
+            }
+        }
+
+        alert(`Failed to create content. Error: ${errorMsg}`);
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteContent = async (id: string) => {
+      if(!window.confirm("Are you sure?")) return;
+      await api.deleteContent(id);
+      if (activeChapter) {
+          const content = await api.getContent(activeChapter);
+          setContentList(content);
+      }
+  };
+
 
   // --- QUIZ BUILDER LOGIC ---
   const handleOptionChange = (index: number, value: string) => {
@@ -135,56 +305,6 @@ export const ManageContent = () => {
     setQuizBuilderQuestions(updated);
   };
 
-  const handleAddContent = () => {
-    if(!contentForm.title || !activeChapter || !showAddContent) return;
-    const categoryMap: Record<string, string> = {
-        [ContentType.VIDEO]: 'lectures',
-        [ContentType.PDF]: 'notes',
-        [ContentType.QUIZ]: 'quizzes',
-        [ContentType.DPP_VIDEO]: 'dpp_videos'
-    };
-    
-    // If it's a quiz, calculate questions count automatically
-    const finalQuestionCount = showAddContent === ContentType.QUIZ 
-      ? quizBuilderQuestions.length 
-      : Number(contentForm.questions) || undefined;
-    
-    // Handle Duration for Quizzes (Time Limit)
-    let finalDuration = contentForm.duration;
-    if (showAddContent === ContentType.QUIZ && contentForm.timeLimit) {
-        finalDuration = `${contentForm.timeLimit}m`;
-    }
-
-    addContent(categoryMap[showAddContent], {
-        id: `cnt${Date.now()}`,
-        title: contentForm.title,
-        type: showAddContent,
-        chapterId: activeChapter,
-        uploadDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-        status: 'Not Started',
-        duration: finalDuration || undefined,
-        teacher: contentForm.teacher || undefined,
-        url: contentForm.url || undefined,
-        questions: finalQuestionCount,
-        marks: Number(contentForm.marks) || undefined,
-        thumbnailUrl: contentForm.thumbnail || undefined,
-        quizData: showAddContent === ContentType.QUIZ ? [...quizBuilderQuestions] : undefined
-    });
-    
-    // Reset form
-    setContentForm({
-      title: '',
-      url: '',
-      duration: '',
-      teacher: '',
-      questions: '',
-      marks: '',
-      timeLimit: '',
-      thumbnail: ''
-    });
-    setQuizBuilderQuestions([]); // Clear quiz questions
-    setShowAddContent(null);
-  };
 
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col">
@@ -213,22 +333,13 @@ export const ManageContent = () => {
                                 value={newSubjectName} onChange={e => setNewSubjectName(e.target.value)}
                             />
                         </div>
-                        <div>
-                            <label className="text-xs text-gray-500 font-bold mb-1 block uppercase">Subject Icon</label>
-                            <div className="flex items-center gap-3 w-full bg-surface border border-border border-dashed rounded-lg px-3 py-2 cursor-pointer hover:border-gray-500 transition-colors">
-                                <div className="w-8 h-8 bg-purple-500/10 rounded flex items-center justify-center text-purple-400">
-                                   <Image size={16} />
-                                </div>
-                                <span className="text-xs text-gray-400">Click to upload icon</span>
-                            </div>
-                        </div>
                         <div className="flex gap-2 mt-2">
                              <button onClick={handleAddSubject} className="flex-1 bg-primary text-white text-xs font-bold py-2 rounded-lg hover:bg-primary/90">ADD</button>
                              <button onClick={() => setShowAddSubject(false)} className="px-3 bg-surface border border-border rounded-lg hover:bg-white/5"><X size={14} /></button>
                         </div>
                     </div>
                 )}
-                {currentSubjects.map(sub => (
+                {subjectsList.map(sub => (
                     <div 
                         key={sub.id} 
                         onClick={() => { setActiveSubject(sub.id); setActiveChapter(null); }}
@@ -243,6 +354,9 @@ export const ManageContent = () => {
                         <ChevronRight size={18} className={activeSubject === sub.id ? 'opacity-100' : 'opacity-50'} />
                     </div>
                 ))}
+                {subjectsList.length === 0 && !showAddSubject && (
+                    <div className="text-center text-gray-500 mt-10 text-sm italic">No subjects added.</div>
+                )}
              </div>
           </div>
 
@@ -254,7 +368,7 @@ export const ManageContent = () => {
                     disabled={!activeSubject}
                     onClick={() => {
                         setShowAddChapter(true);
-                        setNewChapterOrder(String(currentChapters.length + 1));
+                        setNewChapterOrder(String(chaptersList.length + 1));
                     }} 
                     className="p-1 hover:bg-white/10 rounded disabled:opacity-30"
                 ><FolderPlus size={18}/></button>
@@ -276,7 +390,7 @@ export const ManageContent = () => {
                     </div>
                 )}
 
-                {currentChapters.map(chap => (
+                {chaptersList.map(chap => (
                     <div 
                         key={chap.id} 
                         onClick={() => setActiveChapter(chap.id)}
@@ -469,49 +583,53 @@ export const ManageContent = () => {
                                     {(showAddContent === ContentType.VIDEO || showAddContent === ContentType.DPP_VIDEO) && (
                                         <div>
                                             <label className="text-xs text-gray-400 mb-1.5 block font-medium uppercase tracking-wide">Thumbnail</label>
-                                            <div className="flex items-center gap-3 w-full bg-background border border-border border-dashed rounded-lg px-4 py-3 cursor-pointer hover:border-gray-500 transition-colors group">
-                                                <div className="w-10 h-10 bg-surface rounded-md flex items-center justify-center text-gray-500 group-hover:text-white transition-colors">
-                                                    <Image size={20} />
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-300">Upload Thumbnail</p>
-                                                    <p className="text-[10px] text-gray-500">16:9 Recommended • JPG, PNG</p>
-                                                </div>
+                                            <div 
+                                                onClick={() => thumbnailInputRef.current?.click()}
+                                                className="flex items-center gap-3 w-full bg-background border border-border border-dashed rounded-lg px-4 py-3 cursor-pointer hover:border-gray-500 transition-colors group relative overflow-hidden"
+                                            >
+                                                <input 
+                                                    type="file" 
+                                                    ref={thumbnailInputRef} 
+                                                    onChange={handleThumbnailUpload} 
+                                                    className="hidden" 
+                                                    accept="image/*"
+                                                />
+                                                {contentForm.thumbnail ? (
+                                                    <>
+                                                        <img src={contentForm.thumbnail} alt="Preview" className="w-16 h-10 object-cover rounded" />
+                                                        <div>
+                                                            <p className="text-sm text-gray-300">Change Thumbnail</p>
+                                                            <p className="text-[10px] text-green-500">Image Selected</p>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="w-10 h-10 bg-surface rounded-md flex items-center justify-center text-gray-500 group-hover:text-white transition-colors">
+                                                            <Image size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm text-gray-300">Upload Thumbnail</p>
+                                                            <p className="text-[10px] text-gray-500">16:9 Recommended • JPG, PNG</p>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                     )}
 
-                                    {(showAddContent === ContentType.VIDEO || showAddContent === ContentType.DPP_VIDEO) && (
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="text-xs text-gray-400 mb-1.5 block font-medium uppercase tracking-wide">Teacher Name</label>
-                                                <div className="flex items-center gap-2 bg-background border border-border rounded-lg px-4 py-3 focus-within:border-primary transition-colors">
-                                                    <User size={16} className="text-gray-500"/>
-                                                    <input 
-                                                        className="w-full bg-transparent outline-none text-sm" 
-                                                        placeholder="e.g. Saleem Sir"
-                                                        value={contentForm.teacher}
-                                                        onChange={e => setContentForm({...contentForm, teacher: e.target.value})}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-gray-400 mb-1.5 block font-medium uppercase tracking-wide">Duration</label>
-                                                <div className="flex items-center gap-2 bg-background border border-border rounded-lg px-4 py-3 focus-within:border-primary transition-colors">
-                                                    <Clock size={16} className="text-gray-500"/>
-                                                    <input 
-                                                        className="w-full bg-transparent outline-none text-sm" 
-                                                        placeholder="e.g. 45:30"
-                                                        value={contentForm.duration}
-                                                        onChange={e => setContentForm({...contentForm, duration: e.target.value})}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <button onClick={handleAddContent} className="w-full bg-primary hover:bg-primary/90 text-white py-3.5 rounded-lg text-sm font-bold mt-2 shadow-lg shadow-primary/20 transition-all">
-                                        SAVE {showAddContent === ContentType.QUIZ ? 'QUIZ' : 'CONTENT'}
+                                    <button 
+                                        disabled={isSubmitting}
+                                        onClick={handleAddContent} 
+                                        className="w-full bg-primary hover:bg-primary/90 text-white py-3.5 rounded-lg text-sm font-bold mt-2 shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isSubmitting ? (
+                                            <>
+                                                <Loader2 className="animate-spin" size={18} />
+                                                SAVING...
+                                            </>
+                                        ) : (
+                                            `SAVE ${showAddContent === ContentType.QUIZ ? 'QUIZ' : 'CONTENT'}`
+                                        )}
                                     </button>
                                 </div>
                              </div>
@@ -520,7 +638,7 @@ export const ManageContent = () => {
                         {/* Existing Content List */}
                         <div className="space-y-4">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Existing Content ({getChapterContent().length})</h4>
+                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Existing Content ({filteredContent.length})</h4>
                                 
                                 {/* Filters */}
                                 <div className="flex gap-2 bg-black/20 p-1 rounded-lg">
@@ -541,9 +659,14 @@ export const ManageContent = () => {
                             </div>
                             
                             <div className="space-y-3">
-                                {getChapterContent().map((item, idx) => (
+                                {filteredContent.map((item, idx) => (
                                     <div key={idx} className="flex items-center justify-between p-4 bg-[#13151b] border border-[#27292e] rounded-xl group hover:border-gray-600 transition-all shadow-sm hover:shadow-md animate-in fade-in slide-in-from-bottom-2">
                                         <div className="flex items-center gap-4">
+                                            {/* Sequence Number */}
+                                            <div className="w-8 text-center text-gray-500 text-sm font-mono font-bold">
+                                                {(idx + 1).toString().padStart(2, '0')}
+                                            </div>
+
                                             {/* Icon Box */}
                                             <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${
                                                 item.type === ContentType.VIDEO ? 'bg-blue-500/10 text-blue-500' :
@@ -585,14 +708,17 @@ export const ManageContent = () => {
                                             </div>
                                         </div>
                                         
-                                        <button className="text-gray-600 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100 shrink-0">
+                                        <button 
+                                            onClick={() => handleDeleteContent(item.id)}
+                                            className="text-gray-600 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100 shrink-0"
+                                        >
                                             <Trash2 size={18} />
                                         </button>
                                     </div>
                                 ))}
                             </div>
                             
-                            {getChapterContent().length === 0 && (
+                            {filteredContent.length === 0 && (
                                 <div className="text-center py-12 text-gray-600 text-sm border border-dashed border-gray-800 rounded-xl bg-black/10 flex flex-col items-center justify-center gap-2">
                                     <Filter size={24} className="opacity-20" />
                                     <p>No content found.</p>

@@ -1,10 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users, BookOpen, DollarSign, Edit, Trash2, Settings } from 'lucide-react';
-import { batches } from '../../services/mockData';
+import { Plus, Users, BookOpen, DollarSign, Edit, Trash2, Settings, Loader2 } from 'lucide-react';
+import { api } from '../../services/api';
+import { Batch } from '../../types';
 
 export const AdminDashboard = () => {
   const navigate = useNavigate();
+  const [batchesList, setBatchesList] = useState<Batch[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch Real Data from API/Supabase
+  useEffect(() => {
+    const loadBatches = async () => {
+        setLoading(true);
+        try {
+            const data = await api.getBatches();
+            setBatchesList(data);
+        } catch (e) {
+            console.error("Failed to load batches");
+        } finally {
+            setLoading(false);
+        }
+    };
+    loadBatches();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -38,53 +57,68 @@ export const AdminDashboard = () => {
            <div className="p-3 bg-purple-500/10 rounded-lg text-purple-500"><BookOpen size={24} /></div>
            <div>
              <p className="text-gray-400 text-sm">Active Batches</p>
-             <h3 className="text-2xl font-bold">{batches.length}</h3>
+             <h3 className="text-2xl font-bold">{loading ? '-' : batchesList.length}</h3>
            </div>
         </div>
       </div>
 
-      {/* Batches Table Mock */}
+      {/* Batches Table */}
       <div className="bg-surface border border-border rounded-xl overflow-hidden">
         <div className="p-6 border-b border-border">
           <h2 className="text-lg font-bold">Manage Batches</h2>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-black/20 text-gray-400">
-              <tr>
-                <th className="p-4">Batch Name</th>
-                <th className="p-4">Class</th>
-                <th className="p-4">Price</th>
-                <th className="p-4">Content</th>
-                <th className="p-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {batches.map(batch => (
-                <tr key={batch.id} className="hover:bg-white/5 transition-colors">
-                  <td className="p-4 font-medium">
-                      {batch.title}
-                      {batch.tags.includes('New') && <span className="ml-2 text-[10px] bg-accent text-black px-1.5 rounded font-bold">NEW</span>}
-                  </td>
-                  <td className="p-4">{batch.class}</td>
-                  <td className="p-4">{batch.isFree ? 'Free' : `₹${batch.price}`}</td>
-                  <td className="p-4">
-                      <button 
-                        onClick={() => navigate(`/admin/manage-content/${batch.id}`)}
-                        className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors"
-                      >
-                         <Settings size={14} /> Manage Content
-                      </button>
-                  </td>
-                  <td className="p-4 flex gap-3">
-                    <button className="text-blue-400 hover:text-blue-300"><Edit size={18} /></button>
-                    <button className="text-red-400 hover:text-red-300"><Trash2 size={18} /></button>
-                  </td>
+        
+        {loading ? (
+            <div className="p-10 flex justify-center text-primary">
+                <Loader2 className="animate-spin" size={32} />
+            </div>
+        ) : (
+            <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+                <thead className="bg-black/20 text-gray-400">
+                <tr>
+                    <th className="p-4">Batch Name</th>
+                    <th className="p-4">Class</th>
+                    <th className="p-4">Price</th>
+                    <th className="p-4">Content</th>
+                    <th className="p-4">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-border">
+                {batchesList.length === 0 ? (
+                    <tr>
+                        <td colSpan={5} className="p-8 text-center text-gray-500">
+                            No batches found. Create one to get started.
+                        </td>
+                    </tr>
+                ) : (
+                    batchesList.map(batch => (
+                        <tr key={batch.id} className="hover:bg-white/5 transition-colors">
+                        <td className="p-4 font-medium">
+                            {batch.title}
+                            {batch.tags.includes('New') && <span className="ml-2 text-[10px] bg-accent text-black px-1.5 rounded font-bold">NEW</span>}
+                        </td>
+                        <td className="p-4">{batch.class}</td>
+                        <td className="p-4">{batch.isFree ? 'Free' : `₹${batch.price}`}</td>
+                        <td className="p-4">
+                            <button 
+                                onClick={() => navigate(`/admin/manage-content/${batch.id}`)}
+                                className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors"
+                            >
+                                <Settings size={14} /> Manage Content
+                            </button>
+                        </td>
+                        <td className="p-4 flex gap-3">
+                            <button className="text-blue-400 hover:text-blue-300"><Edit size={18} /></button>
+                            <button className="text-red-400 hover:text-red-300"><Trash2 size={18} /></button>
+                        </td>
+                        </tr>
+                    ))
+                )}
+                </tbody>
+            </table>
+            </div>
+        )}
       </div>
     </div>
   );
