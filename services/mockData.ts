@@ -7,8 +7,27 @@ export const currentUser: User = {
   xp: 1250
 };
 
-// Mutable array for Admin Demo
-export let batches: Batch[] = [
+// --- Local Storage Helpers ---
+const getStorage = <T>(key: string, initialValue: T): T => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : initialValue;
+  } catch (error) {
+    console.error(`Error reading ${key} from localStorage`, error);
+    return initialValue;
+  }
+};
+
+const setStorage = (key: string, value: any) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error(`Error saving ${key} to localStorage`, error);
+  }
+};
+
+// --- Default Data (Used only on first load) ---
+const defaultBatches: Batch[] = [
   {
     id: 'b1',
     title: 'Prayas JEE 2025',
@@ -20,9 +39,9 @@ export let batches: Batch[] = [
     isFree: true,
     class: 'JEE 2025',
     language: 'Hinglish',
-    startDate: '22 April 2024',
-    endDate: '21 Dec 2024',
-    validityDate: '30 June 2025',
+    startDate: '2024-04-22',
+    endDate: '2024-12-21',
+    validityDate: '2025-06-30',
     enrolled: true,
     newContentCount: 3,
     subjectIds: ['s1', 's2', 's3', 's4', 's5'],
@@ -43,55 +62,35 @@ export let batches: Batch[] = [
     price: 4799,
     originalPrice: 5600,
     isFree: false,
-    class: 'Class 11th',
+    class: 'Class 11',
     language: 'Hinglish',
-    startDate: '10 May 2024',
-    endDate: '31 March 2026',
-    validityDate: '30 June 2026',
+    startDate: '2024-05-10',
+    endDate: '2026-03-31',
+    validityDate: '2026-06-30',
     enrolled: false,
     subjectIds: ['s1', 's2'],
     features: ['Foundation Builder', 'Olympiad Prep', 'Live Mentorship']
   }
 ];
 
-export const addBatch = (batch: Batch) => {
-  batches.push(batch);
-};
-
-export const availableSubjects = [
-  { id: 'sub1', name: 'Physics', icon: 'Atom' },
-  { id: 'sub2', name: 'Chemistry', icon: 'FlaskConical' },
-  { id: 'sub3', name: 'Maths', icon: 'Calculator' },
-  { id: 'sub4', name: 'Biology', icon: 'Dna' },
-  { id: 'sub5', name: 'English', icon: 'Book' },
-];
-
-export let subjects: Subject[] = [
-  { id: 's1', name: 'Physics', icon: 'Atom', chapterCount: 43, batchId: 'b1' },
+const defaultSubjects: Subject[] = [
+  { id: 's1', name: 'Physics', icon: 'Atom', chapterCount: 3, batchId: 'b1' },
   { id: 's2', name: 'Maths', icon: 'Calculator', chapterCount: 42, batchId: 'b1' },
   { id: 's3', name: 'Physical Chemistry', icon: 'FlaskConical', chapterCount: 21, batchId: 'b1' },
   { id: 's4', name: 'Organic Chemistry', icon: 'FlaskRound', chapterCount: 28, batchId: 'b1' },
   { id: 's5', name: 'Inorganic Chemistry', icon: 'TestTube2', chapterCount: 16, batchId: 'b1' },
 ];
 
-export const addSubject = (subject: Subject) => {
-  subjects.push(subject);
-};
-
-export let chapters: Chapter[] = [
-  { id: 'c1', title: '01 - Mathematical Tools', subtitle: 'Basics of integration and differentiation', subjectId: 's1', lectureCount: 6, notesCount: 6, quizCount: 6, order: 1 },
+const defaultChapters: Chapter[] = [
+  { id: 'c1', title: '01 - Mathematical Tools', subtitle: 'Basics of integration', subjectId: 's1', lectureCount: 6, notesCount: 6, quizCount: 6, order: 1 },
   { id: 'c2', title: '02 - Vectors', subtitle: 'Scalar and Vector products', subjectId: 's1', lectureCount: 8, notesCount: 8, quizCount: 8, order: 2 },
   { id: 'c3', title: '03 - Units and Dimensions', subtitle: '', subjectId: 's1', lectureCount: 4, notesCount: 4, quizCount: 4, order: 3 },
 ];
 
-export const addChapter = (chapter: Chapter) => {
-  chapters.push(chapter);
-};
-
 // DIRECT MP4 LINK (Big Buck Bunny) - Guaranteed to play in HTML5 Player
 const TEST_VIDEO_URL = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 
-export let mockContent: Record<string, ContentItem[]> = {
+const defaultContent: Record<string, ContentItem[]> = {
   'lectures': [
     {
       id: 'l1',
@@ -138,7 +137,7 @@ export let mockContent: Record<string, ContentItem[]> = {
       chapterId: 'c1',
       uploadDate: '1 May 2024',
       status: 'Not Started',
-      url: 'https://arxiv.org/pdf/2101.00001.pdf' // Sample PDF Link
+      url: 'https://pdfobject.com/pdf/sample.pdf' 
     }
   ],
   'quizzes': [
@@ -148,7 +147,7 @@ export let mockContent: Record<string, ContentItem[]> = {
       type: ContentType.QUIZ,
       chapterId: 'c1',
       uploadDate: '30 Apr 2024',
-      questions: 15,
+      questions: 5,
       marks: 60,
       duration: '45m',
       status: 'In Progress',
@@ -203,12 +202,47 @@ export let mockContent: Record<string, ContentItem[]> = {
   ]
 };
 
-export const addContent = (category: string, item: ContentItem) => {
-  if (!mockContent[category]) {
-    mockContent[category] = [];
-  }
-  mockContent[category].push(item);
+// --- Exported State (Initialized from LocalStorage) ---
+
+export let batches: Batch[] = getStorage('edtech_batches', defaultBatches);
+
+export const addBatch = (batch: Batch) => {
+  batches = [...batches, batch];
+  setStorage('edtech_batches', batches);
 };
+
+export let subjects: Subject[] = getStorage('edtech_subjects', defaultSubjects);
+
+export const addSubject = (subject: Subject) => {
+  subjects = [...subjects, subject];
+  setStorage('edtech_subjects', subjects);
+};
+
+export let chapters: Chapter[] = getStorage('edtech_chapters', defaultChapters);
+
+export const addChapter = (chapter: Chapter) => {
+  chapters = [...chapters, chapter];
+  setStorage('edtech_chapters', chapters);
+};
+
+export let mockContent: Record<string, ContentItem[]> = getStorage('edtech_content', defaultContent);
+
+export const addContent = (category: string, item: ContentItem) => {
+  const newCategoryContent = mockContent[category] ? [...mockContent[category], item] : [item];
+  mockContent = {
+    ...mockContent,
+    [category]: newCategoryContent
+  };
+  setStorage('edtech_content', mockContent);
+};
+
+export const availableSubjects = [
+  { id: 'sub1', name: 'Physics', icon: 'Atom' },
+  { id: 'sub2', name: 'Chemistry', icon: 'FlaskConical' },
+  { id: 'sub3', name: 'Maths', icon: 'Calculator' },
+  { id: 'sub4', name: 'Biology', icon: 'Dna' },
+  { id: 'sub5', name: 'English', icon: 'Book' },
+];
 
 export const announcements: Announcement[] = [
   { id: 'a1', message: 'Physics class rescheduled to 5 PM today due to technical maintenance.', date: 'Today, 2:00 PM', batchId: 'b1' },
