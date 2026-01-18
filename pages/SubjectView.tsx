@@ -1,59 +1,30 @@
-
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
-import { Subject, Chapter, ContentType } from '../types';
-import { Loader2 } from 'lucide-react';
+import { subjects, chapters, mockContent } from '../services/mockData';
 
 export const SubjectView = () => {
   const { batchId, subjectId } = useParams();
   const navigate = useNavigate();
   
-  const [subject, setSubject] = useState<Subject | undefined>(undefined);
-  const [subjectChapters, setSubjectChapters] = useState<Chapter[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [contentStats, setContentStats] = useState<any[]>([]);
+  const subject = subjects.find(s => s.id === subjectId);
+  const subjectChapters = chapters.filter(c => c.subjectId === subjectId);
 
-  useEffect(() => {
-    const loadData = async () => {
-        if(!subjectId) return;
-        setLoading(true);
-        try {
-            const sub = await api.getSubjectById(subjectId);
-            setSubject(sub);
-            
-            const chapters = await api.getChapters(subjectId);
-            setSubjectChapters(chapters);
-
-            // Fetch Stats
-            const stats = await api.getSubjectContentStats(subjectId);
-            setContentStats(stats || []);
-
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
-    };
-    loadData();
-  }, [subjectId]);
-
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" size={40}/></div>;
   if (!subject) return <div>Subject not found</div>;
 
-  // Helper to calculate counts from fetched stats
+  // Helper to calculate counts
   const getCounts = (chapterId?: string) => {
-      // Filter stats by chapterId if provided, else count all for subject
-      const relevantStats = chapterId 
-        ? contentStats.filter((c: any) => c.chapter_id === chapterId)
-        : contentStats;
-
-      const count = (type: string) => relevantStats.filter((c: any) => c.type === type).length;
+      const targetChapterIds = chapterId ? [chapterId] : subjectChapters.map(c => c.id);
       
+      const count = (category: string) => {
+          return (mockContent[category] || [])
+            .filter(item => targetChapterIds.includes(item.chapterId))
+            .length;
+      };
+
       return {
-          videos: count(ContentType.VIDEO) + count(ContentType.DPP_VIDEO),
-          exercises: count(ContentType.QUIZ),
-          notes: count(ContentType.PDF)
+          videos: count('lectures') + count('dpp_videos'),
+          exercises: count('quizzes'),
+          notes: count('notes')
       };
   };
 
@@ -93,8 +64,10 @@ export const SubjectView = () => {
 
       <div className="space-y-4 pt-2">
          {subjectChapters.map(chapter => {
+            // Extract title name without numbering if it exists in "01 - Name" format
             const titleName = chapter.title.includes(' - ') ? chapter.title.split(' - ')[1] : chapter.title;
             const chapterNum = String(chapter.order).padStart(2, '0');
+            
             const chapterStats = getCounts(chapter.id);
 
             return (

@@ -1,24 +1,18 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { 
   Play, Pause, RotateCcw, RotateCw, Maximize, Minimize, Volume2, VolumeX,
   Download, FileText, Clock, BarChart2, Video, X, ChevronRight, ChevronLeft, 
   Settings, Check, Menu, Zap, Target, Trophy, AlertCircle, ArrowLeft, ChevronsRight, ChevronsLeft,
-  CheckCircle2, Loader2
+  CheckCircle2
 } from 'lucide-react';
-import { api } from '../services/api';
+import { chapters, mockContent } from '../services/mockData';
 import { ContentType, ContentItem, Chapter } from '../types';
 
 export const ChapterView = () => {
   const { batchId, subjectId, chapterId } = useParams();
   const [activeTab, setActiveTab] = useState<'Lectures' | 'Notes' | 'DPP Quiz' | 'DPP PDF' | 'DPP Video'>('Lectures');
   
-  // Data States
-  const [chapter, setChapter] = useState<Chapter | undefined>(undefined);
-  const [allContent, setAllContent] = useState<ContentItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
   // States for players/modals
   const [activeQuiz, setActiveQuiz] = useState<ContentItem | null>(null);
   const [activeVideo, setActiveVideo] = useState<ContentItem | null>(null);
@@ -55,53 +49,28 @@ export const ChapterView = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   const isAllContent = chapterId === 'all';
-
-  useEffect(() => {
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            // Load Chapter Info (Mock 'All Contents' chapter if 'all')
-            if (isAllContent) {
-                setChapter({ id: 'all', title: 'All Contents', subjectId: subjectId!, lectureCount: 0, notesCount: 0, quizCount: 0, order: 0 });
-                // For 'all', we might need to fetch all content for subject. 
-                // For simplicity, let's just fetch all content if the API supports it, or handle it in UI.
-                // Current API `getContent` takes `chapterId`. We might need `getSubjectContent` or iterate chapters.
-                // Re-using the `getSubjectContentStats` approach but fetching full items might be heavy.
-                // Let's implement a 'Fetch all for subject' in the component by fetching chapters first.
-                const chapters = await api.getChapters(subjectId!);
-                const promises = chapters.map(c => api.getContent(c.id));
-                const results = await Promise.all(promises);
-                const flatContent = results.flat();
-                setAllContent(flatContent);
-            } else if (chapterId) {
-                // We don't have getChapterById in API, but we can fetch chapters for subject and find it, or add getChapterById.
-                // Let's assume we can fetch all chapters for subject and filter.
-                const chapters = await api.getChapters(subjectId!);
-                const found = chapters.find(c => c.id === chapterId);
-                setChapter(found);
-                
-                const content = await api.getContent(chapterId);
-                setAllContent(content);
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
-    loadData();
-  }, [chapterId, subjectId, isAllContent]);
-
+  
+  const chapter: Chapter | undefined = isAllContent 
+    ? { id: 'all', title: 'All Contents', subjectId: subjectId!, lectureCount: 0, notesCount: 0, quizCount: 0, order: 0 }
+    : chapters.find(c => c.id === chapterId);
 
   // Content Filter
   const getContent = () => {
+    let rawContent: ContentItem[] = [];
     switch(activeTab) {
-      case 'Lectures': return allContent.filter(c => c.type === ContentType.VIDEO);
-      case 'Notes': return allContent.filter(c => c.type === ContentType.PDF);
-      case 'DPP Quiz': return allContent.filter(c => c.type === ContentType.QUIZ);
-      case 'DPP PDF': return []; // No type for this yet in mock, usually PDF with different logic
-      case 'DPP Video': return allContent.filter(c => c.type === ContentType.DPP_VIDEO);
-      default: return [];
+      case 'Lectures': rawContent = mockContent['lectures'] || []; break;
+      case 'Notes': rawContent = mockContent['notes'] || []; break;
+      case 'DPP Quiz': rawContent = mockContent['quizzes'] || []; break;
+      case 'DPP PDF': rawContent = []; break;
+      case 'DPP Video': rawContent = mockContent['dpp_videos'] || []; break;
+      default: rawContent = [];
+    }
+
+    if (isAllContent) {
+        const subjectChapterIds = chapters.filter(c => c.subjectId === subjectId).map(c => c.id);
+        return rawContent.filter(item => subjectChapterIds.includes(item.chapterId));
+    } else {
+        return rawContent.filter(item => item.chapterId === chapterId);
     }
   };
 
@@ -110,9 +79,16 @@ export const ChapterView = () => {
   // --- Helpers ---
   const getEmbedUrl = (url?: string) => {
       if (!url) return '';
+      
+      // 1. Google Drive Link Logic (The Hack)
       if (url.includes('drive.google.com')) {
+          // Replace /view or /edit with /preview for the "No Download" interface
           return url.replace(/\/view.*$/, '/preview').replace(/\/edit.*$/, '/preview');
       }
+      
+      // 2. Generic PDF/Doc Link Logic (Google Docs Viewer)
+      // This prevents "Download" popups for direct links (like .pdf, .docx)
+      // It embeds them nicely in the iframe
       return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
   };
 
@@ -139,17 +115,35 @@ export const ChapterView = () => {
   // Keyboard Shortcuts for Video
   useEffect(() => {
     if (!activeVideo) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ([' ', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) e.preventDefault();
+      // Prevent default scrolling for Space/Arrows when video is active
+      if ([' ', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
+         e.preventDefault();
+      }
+
       if (!videoRef.current) return;
+      
       switch(e.key.toLowerCase()) {
-        case ' ': case 'k': togglePlay(); break;
-        case 'arrowright': seek(10); break;
-        case 'arrowleft': seek(-10); break;
-        case 'f': toggleFullscreen(); break;
-        case 'm': toggleMute(); break;
+        case ' ':
+        case 'k':
+          togglePlay();
+          break;
+        case 'arrowright':
+          seek(10);
+          break;
+        case 'arrowleft':
+          seek(-10);
+          break;
+        case 'f':
+          toggleFullscreen();
+          break;
+        case 'm':
+          toggleMute();
+          break;
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeVideo, isPlaying, isFullscreen, isMuted]);
@@ -167,8 +161,13 @@ export const ChapterView = () => {
     if (videoRef.current) {
       videoRef.current.currentTime += seconds;
       handleUserInteraction();
+      
+      // Trigger Animation (Restart if active)
       setSeekAnimation(null); 
+      // Small timeout to allow React to reset state, then trigger animation
       setTimeout(() => setSeekAnimation(seconds > 0 ? 'forward' : 'backward'), 10);
+      
+      // Auto clear after animation duration (600ms match css)
       setTimeout(() => setSeekAnimation(null), 600); 
     }
   };
@@ -199,6 +198,7 @@ export const ChapterView = () => {
 
   const toggleFullscreen = () => {
     if (!playerContainerRef.current) return;
+
     if (!document.fullscreenElement) {
       playerContainerRef.current.requestFullscreen();
       setIsFullscreen(true);
@@ -212,6 +212,7 @@ export const ChapterView = () => {
     if (videoRef.current) {
       videoRef.current.playbackRate = speed;
       setPlaybackSpeed(speed);
+      // Optional: keep menu open or go back to main
       setSettingsView('main'); 
     }
   };
@@ -234,6 +235,7 @@ export const ChapterView = () => {
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
+
 
   // --- Quiz Handlers ---
   const handleStartQuiz = (item: ContentItem) => {
@@ -300,91 +302,260 @@ export const ChapterView = () => {
     return score;
   };
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" size={40}/></div>;
   if (!chapter) return <div>Chapter not found</div>;
 
   // --- RENDER CUSTOM VIDEO PLAYER ---
   if (activeVideo) {
     return (
       <div className="fixed inset-0 bg-black z-50 flex flex-col animate-in fade-in duration-300">
+        
+        {/* Inject Styles for Animations */}
         <style>{`
           @keyframes ripple {
             0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
             40% { transform: translate(-50%, -50%) scale(1.0); opacity: 1; }
             100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
           }
-          .animate-ripple { animation: ripple 0.6s ease-out forwards; }
-          .settings-scroll::-webkit-scrollbar { width: 4px; }
-          .settings-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-          .settings-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+          .animate-ripple {
+            animation: ripple 0.6s ease-out forwards;
+          }
+          .settings-scroll::-webkit-scrollbar {
+            width: 4px;
+          }
+          .settings-scroll::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05); 
+          }
+          .settings-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2); 
+            border-radius: 4px;
+          }
         `}</style>
 
+        {/* Top Header Overlay */}
         <div className={`absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/90 to-transparent z-30 flex items-start pt-6 px-6 pointer-events-none transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
            <div className="pointer-events-auto flex items-center gap-4 w-full">
-             <button onClick={() => setActiveVideo(null)} className="text-white/90 hover:bg-white/10 p-2 rounded-full transition-colors"><ChevronLeft size={28} /></button>
+             <button onClick={() => setActiveVideo(null)} className="text-white/90 hover:bg-white/10 p-2 rounded-full transition-colors">
+               <ChevronLeft size={28} />
+             </button>
              <div className="flex-1">
                 <h2 className="text-white font-bold text-lg leading-tight line-clamp-1 drop-shadow-md">{activeVideo.title}</h2>
              </div>
            </div>
         </div>
 
-        <div ref={playerContainerRef} className="flex-1 relative bg-black flex items-center justify-center group outline-none overflow-hidden" onMouseMove={handleUserInteraction} onClick={handleUserInteraction} onMouseLeave={() => isPlaying && !showSettings && setShowControls(false)}>
-            <video ref={videoRef} src={activeVideo.url} poster={activeVideo.thumbnailUrl} className="w-full h-full max-h-screen object-contain" onClick={(e) => { e.stopPropagation(); togglePlay(); }} autoPlay>
+        {/* Video Area */}
+        <div 
+            ref={playerContainerRef}
+            className="flex-1 relative bg-black flex items-center justify-center group outline-none overflow-hidden"
+            onMouseMove={handleUserInteraction}
+            onClick={handleUserInteraction}
+            onMouseLeave={() => isPlaying && !showSettings && setShowControls(false)}
+        >
+            <video 
+                ref={videoRef}
+                src={activeVideo.url} 
+                poster={activeVideo.thumbnailUrl}
+                className="w-full h-full max-h-screen object-contain"
+                onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                autoPlay
+            >
                 <source src={activeVideo.url} type="video/mp4" />
+                Your browser does not support the video tag.
             </video>
-            {seekAnimation === 'backward' && (<div className="absolute left-[25%] top-1/2 flex flex-col items-center pointer-events-none animate-ripple z-40 transform -translate-x-1/2 -translate-y-1/2"><div className="bg-black/60 p-6 rounded-full backdrop-blur-sm"><ChevronsLeft size={40} className="text-white drop-shadow-lg" /></div><span className="text-white font-bold text-sm mt-2 drop-shadow-md bg-black/40 px-2 py-0.5 rounded">-10s</span></div>)}
-            {seekAnimation === 'forward' && (<div className="absolute left-[75%] top-1/2 flex flex-col items-center pointer-events-none animate-ripple z-40 transform -translate-x-1/2 -translate-y-1/2"><div className="bg-black/60 p-6 rounded-full backdrop-blur-sm"><ChevronsRight size={40} className="text-white drop-shadow-lg" /></div><span className="text-white font-bold text-sm mt-2 drop-shadow-md bg-black/40 px-2 py-0.5 rounded">+10s</span></div>)}
+
+            {/* Seek Animation Overlays - Centered in respective halves */}
+            {seekAnimation === 'backward' && (
+                <div className="absolute left-[25%] top-1/2 flex flex-col items-center pointer-events-none animate-ripple z-40 transform -translate-x-1/2 -translate-y-1/2">
+                    <div className="bg-black/60 p-6 rounded-full backdrop-blur-sm">
+                       <ChevronsLeft size={40} className="text-white drop-shadow-lg" />
+                    </div>
+                    <span className="text-white font-bold text-sm mt-2 drop-shadow-md bg-black/40 px-2 py-0.5 rounded">-10s</span>
+                </div>
+            )}
+             {seekAnimation === 'forward' && (
+                <div className="absolute left-[75%] top-1/2 flex flex-col items-center pointer-events-none animate-ripple z-40 transform -translate-x-1/2 -translate-y-1/2">
+                    <div className="bg-black/60 p-6 rounded-full backdrop-blur-sm">
+                       <ChevronsRight size={40} className="text-white drop-shadow-lg" />
+                    </div>
+                    <span className="text-white font-bold text-sm mt-2 drop-shadow-md bg-black/40 px-2 py-0.5 rounded">+10s</span>
+                </div>
+            )}
+
+
+            {/* CENTER CONTROLS (App Style) */}
             <div className={`absolute inset-0 flex items-center justify-center z-20 pointer-events-none transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
                  <div className="flex items-center gap-8 md:gap-16 pointer-events-auto">
-                      <button onClick={(e) => { e.stopPropagation(); seek(-10); }} className="text-white/80 hover:text-white hover:bg-black/40 p-4 rounded-full transition-all transform hover:scale-110 active:scale-95"><RotateCcw size={32} md:size={40} /></button>
-                      <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="w-16 h-16 md:w-20 md:h-20 bg-primary/90 hover:bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform">{isPlaying ? <Pause size={32} fill="white"/> : <Play size={32} fill="white" className="ml-1"/>}</button>
-                      <button onClick={(e) => { e.stopPropagation(); seek(10); }} className="text-white/80 hover:text-white hover:bg-black/40 p-4 rounded-full transition-all transform hover:scale-110 active:scale-95"><RotateCw size={32} md:size={40} /></button>
+                      {/* Rewind 10s */}
+                      <button 
+                         onClick={(e) => { e.stopPropagation(); seek(-10); }}
+                         className="text-white/80 hover:text-white hover:bg-black/40 p-4 rounded-full transition-all transform hover:scale-110 active:scale-95"
+                      >
+                         <RotateCcw size={32} md:size={40} />
+                      </button>
+
+                      {/* Main Play/Pause */}
+                      <button 
+                         onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                         className="w-16 h-16 md:w-20 md:h-20 bg-primary/90 hover:bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform"
+                      >
+                         {isPlaying ? <Pause size={32} fill="white"/> : <Play size={32} fill="white" className="ml-1"/>}
+                      </button>
+
+                      {/* Forward 10s */}
+                      <button 
+                         onClick={(e) => { e.stopPropagation(); seek(10); }}
+                         className="text-white/80 hover:text-white hover:bg-black/40 p-4 rounded-full transition-all transform hover:scale-110 active:scale-95"
+                      >
+                         <RotateCw size={32} md:size={40} />
+                      </button>
                  </div>
             </div>
+
+            {/* Bottom Controls Bar */}
             <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent px-4 pb-4 pt-10 z-30 transition-all duration-300 ${showControls ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'}`}>
+                
+                {/* Progress Bar (Full Width on Top) */}
                 <div className="group/slider relative w-full h-1 hover:h-2 bg-gray-600/60 cursor-pointer mb-3 rounded-full transition-all touch-none">
-                    <div className="absolute top-0 left-0 h-full bg-primary rounded-full transition-all relative" style={{ width: `${(currentTime / duration) * 100}%` }}>
+                    <div 
+                        className="absolute top-0 left-0 h-full bg-primary rounded-full transition-all relative"
+                        style={{ width: `${(currentTime / duration) * 100}%` }}
+                    >
                          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow scale-0 group-hover/slider:scale-100 transition-transform"></div>
                     </div>
-                    <input type="range" min="0" max={duration || 100} value={currentTime} onChange={handleSeekChange} onClick={(e) => e.stopPropagation()} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"/>
+                    <input 
+                        type="range" 
+                        min="0" 
+                        max={duration || 100} 
+                        value={currentTime} 
+                        onChange={handleSeekChange}
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    />
                 </div>
+
+                {/* Control Row */}
                 <div className="flex items-center justify-between text-white select-none">
+                    
+                    {/* Left Section */}
                     <div className="flex items-center gap-4">
-                        <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="hover:text-primary transition-colors">{isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}</button>
+                        <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="hover:text-primary transition-colors">
+                            {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
+                        </button>
+                        
+                        {/* Volume */}
                         <div className="flex items-center gap-2 group/vol">
-                            <button onClick={(e) => { e.stopPropagation(); toggleMute(); }} className="hover:text-primary">{isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}</button>
-                            <div className="w-0 overflow-hidden group-hover/vol:w-20 transition-all duration-300"><input type="range" min="0" max="1" step="0.1" value={isMuted ? 0 : volume} onChange={handleVolumeChange} onClick={(e) => e.stopPropagation()} className="h-1 bg-gray-500 rounded-full accent-white cursor-pointer w-20"/></div>
+                            <button onClick={(e) => { e.stopPropagation(); toggleMute(); }} className="hover:text-primary">
+                                {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                            </button>
+                            <div className="w-0 overflow-hidden group-hover/vol:w-20 transition-all duration-300">
+                                <input 
+                                    type="range" min="0" max="1" step="0.1" 
+                                    value={isMuted ? 0 : volume} onChange={handleVolumeChange}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="h-1 bg-gray-500 rounded-full accent-white cursor-pointer w-20"
+                                />
+                            </div>
                         </div>
-                        <div className="text-xs font-mono font-medium text-gray-300">{formatVideoTime(currentTime)} / {formatVideoTime(duration)}</div>
+
+                        {/* Time */}
+                        <div className="text-xs font-mono font-medium text-gray-300">
+                            {formatVideoTime(currentTime)} / {formatVideoTime(duration)}
+                        </div>
                     </div>
+
+                    {/* Right Section */}
                     <div className="flex items-center gap-4 relative">
+                        {/* Settings Button */}
                         <div className="relative">
-                            <button onClick={(e) => { e.stopPropagation(); setShowSettings(!showSettings); setSettingsView('main'); }} className={`flex items-center gap-1 text-sm font-bold px-3 py-1.5 rounded-full transition-all ${showSettings ? 'bg-white text-black scale-105' : 'bg-white/10 hover:bg-white/20'}`}><Settings size={18} className={`transition-transform duration-500 ${showSettings ? 'rotate-90' : ''}`} /><span className="hidden sm:inline">Settings</span></button>
+                            <button 
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    setShowSettings(!showSettings); 
+                                    setSettingsView('main');
+                                }} 
+                                className={`flex items-center gap-1 text-sm font-bold px-3 py-1.5 rounded-full transition-all ${showSettings ? 'bg-white text-black scale-105' : 'bg-white/10 hover:bg-white/20'}`}
+                            >
+                                <Settings size={18} className={`transition-transform duration-500 ${showSettings ? 'rotate-90' : ''}`} />
+                                <span className="hidden sm:inline">Settings</span>
+                            </button>
+
+                            {/* Multi-level Settings Menu */}
                             {showSettings && (
                                 <div className="absolute bottom-full right-0 mb-4 w-64 bg-[#1e1e24] border border-gray-700/50 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 zoom-in-95 duration-200 z-50 origin-bottom-right">
+                                    
+                                    {/* Main Menu */}
                                     {settingsView === 'main' && (
                                         <div className="py-2">
-                                            <div className="px-4 py-2 border-b border-gray-700/50 mb-1"><h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Settings</h3></div>
-                                            <button onClick={(e) => { e.stopPropagation(); setSettingsView('speed'); }} className="w-full flex justify-between items-center px-4 py-3 text-sm text-gray-200 hover:bg-white/10 transition-colors"><div className="flex items-center gap-3"><Clock size={18} className="text-gray-400"/> Playback Speed</div><div className="flex items-center gap-1 text-gray-400 text-xs font-medium">{playbackSpeed === 1 ? 'Normal' : playbackSpeed + 'x'} <ChevronRight size={14}/></div></button>
-                                            <button onClick={(e) => { e.stopPropagation(); setSettingsView('quality'); }} className="w-full flex justify-between items-center px-4 py-3 text-sm text-gray-200 hover:bg-white/10 transition-colors"><div className="flex items-center gap-3"><Zap size={18} className="text-gray-400"/> Quality</div><div className="flex items-center gap-1 text-gray-400 text-xs font-medium">{videoQuality} <ChevronRight size={14}/></div></button>
+                                            <div className="px-4 py-2 border-b border-gray-700/50 mb-1">
+                                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Settings</h3>
+                                            </div>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); setSettingsView('speed'); }}
+                                                className="w-full flex justify-between items-center px-4 py-3 text-sm text-gray-200 hover:bg-white/10 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-3"><Clock size={18} className="text-gray-400"/> Playback Speed</div>
+                                                <div className="flex items-center gap-1 text-gray-400 text-xs font-medium">{playbackSpeed === 1 ? 'Normal' : playbackSpeed + 'x'} <ChevronRight size={14}/></div>
+                                            </button>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); setSettingsView('quality'); }}
+                                                className="w-full flex justify-between items-center px-4 py-3 text-sm text-gray-200 hover:bg-white/10 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-3"><Zap size={18} className="text-gray-400"/> Quality</div>
+                                                <div className="flex items-center gap-1 text-gray-400 text-xs font-medium">{videoQuality} <ChevronRight size={14}/></div>
+                                            </button>
                                         </div>
                                     )}
+
+                                    {/* Speed Menu */}
                                     {settingsView === 'speed' && (
                                         <div className="py-1">
-                                            <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-700/50 bg-black/20"><button onClick={(e) => { e.stopPropagation(); setSettingsView('main'); }} className="p-1 hover:bg-white/10 rounded-full transition-colors"><ArrowLeft size={16} /></button><span className="text-sm font-bold">Playback Speed</span></div>
-                                            <div className="max-h-60 overflow-y-auto settings-scroll p-1">{[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map(speed => (<button key={speed} onClick={(e) => { e.stopPropagation(); handleSpeedChange(speed); }} className={`w-full text-left px-4 py-2.5 text-sm flex justify-between items-center rounded-lg mb-0.5 ${playbackSpeed === speed ? 'bg-primary text-white font-medium' : 'text-gray-300 hover:bg-white/5'}`}><span>{speed === 1.0 ? 'Normal' : speed + 'x'}</span>{playbackSpeed === speed && <Check size={16} />}</button>))}</div>
+                                            <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-700/50 bg-black/20">
+                                                <button onClick={(e) => { e.stopPropagation(); setSettingsView('main'); }} className="p-1 hover:bg-white/10 rounded-full transition-colors"><ArrowLeft size={16} /></button>
+                                                <span className="text-sm font-bold">Playback Speed</span>
+                                            </div>
+                                            <div className="max-h-60 overflow-y-auto settings-scroll p-1">
+                                                {[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map(speed => (
+                                                    <button 
+                                                        key={speed}
+                                                        onClick={(e) => { e.stopPropagation(); handleSpeedChange(speed); }}
+                                                        className={`w-full text-left px-4 py-2.5 text-sm flex justify-between items-center rounded-lg mb-0.5 ${playbackSpeed === speed ? 'bg-primary text-white font-medium' : 'text-gray-300 hover:bg-white/5'}`}
+                                                    >
+                                                        <span>{speed === 1.0 ? 'Normal' : speed + 'x'}</span>
+                                                        {playbackSpeed === speed && <Check size={16} />}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
+
+                                    {/* Quality Menu */}
                                     {settingsView === 'quality' && (
                                         <div className="py-1">
-                                            <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-700/50 bg-black/20"><button onClick={(e) => { e.stopPropagation(); setSettingsView('main'); }} className="p-1 hover:bg-white/10 rounded-full transition-colors"><ArrowLeft size={16} /></button><span className="text-sm font-bold">Quality</span></div>
-                                            <div className="max-h-60 overflow-y-auto settings-scroll p-1">{['Auto (720p)', '1080p Full HD', '720p HD', '480p', '360p', '240p'].map(quality => (<button key={quality} onClick={(e) => { e.stopPropagation(); handleQualityChange(quality); }} className={`w-full text-left px-4 py-2.5 text-sm flex justify-between items-center rounded-lg mb-0.5 ${videoQuality === quality ? 'bg-primary text-white font-medium' : 'text-gray-300 hover:bg-white/5'}`}><span>{quality}</span>{videoQuality === quality && <Check size={16} />}</button>))}</div>
+                                            <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-700/50 bg-black/20">
+                                                <button onClick={(e) => { e.stopPropagation(); setSettingsView('main'); }} className="p-1 hover:bg-white/10 rounded-full transition-colors"><ArrowLeft size={16} /></button>
+                                                <span className="text-sm font-bold">Quality</span>
+                                            </div>
+                                            <div className="max-h-60 overflow-y-auto settings-scroll p-1">
+                                                {['Auto (720p)', '1080p Full HD', '720p HD', '480p', '360p', '240p'].map(quality => (
+                                                    <button 
+                                                        key={quality}
+                                                        onClick={(e) => { e.stopPropagation(); handleQualityChange(quality); }}
+                                                        className={`w-full text-left px-4 py-2.5 text-sm flex justify-between items-center rounded-lg mb-0.5 ${videoQuality === quality ? 'bg-primary text-white font-medium' : 'text-gray-300 hover:bg-white/5'}`}
+                                                    >
+                                                        <span>{quality}</span>
+                                                        {videoQuality === quality && <Check size={16} />}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
                             )}
                         </div>
-                        <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="hover:text-primary p-1.5 hover:bg-white/10 rounded-full transition-colors">{isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}</button>
+
+                        <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="hover:text-primary p-1.5 hover:bg-white/10 rounded-full transition-colors">
+                            {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+                        </button>
                     </div>
                 </div>
             </div>

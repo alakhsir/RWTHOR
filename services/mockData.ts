@@ -137,7 +137,7 @@ export let mockContent: Record<string, ContentItem[]> = {
       chapterId: 'c1',
       uploadDate: '1 May 2024',
       status: 'Not Started',
-      url: 'https://arxiv.org/pdf/2101.00001.pdf' // Sample PDF Link
+      url: 'https://pdfobject.com/pdf/sample.pdf' // Changed to a CORS-friendly PDF
     }
   ],
   'quizzes': [

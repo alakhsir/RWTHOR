@@ -1,9 +1,7 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Share2, Bell, Book, Star, Calendar, Atom, Calculator, FlaskConical, FlaskRound, TestTube2, Megaphone, CheckCircle2, Loader2 } from 'lucide-react';
-import { api } from '../services/api';
-import { Batch, Subject } from '../types';
+import { Share2, Bell, Book, Star, Calendar, Atom, Calculator, FlaskConical, FlaskRound, TestTube2, Megaphone, CheckCircle2 } from 'lucide-react';
+import { batches, subjects } from '../services/mockData';
 
 // Map icon string to component
 const iconMap: Record<string, any> = {
@@ -15,34 +13,8 @@ export const BatchDetails = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'description' | 'classes'>('classes');
   
-  const [batch, setBatch] = useState<Batch | undefined>(undefined);
-  const [batchSubjects, setBatchSubjects] = useState<Subject[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadData = async () => {
-        if(!batchId) return;
-        setLoading(true);
-        try {
-            const batchData = await api.getBatchById(batchId);
-            setBatch(batchData);
-            
-            if(batchData) {
-                const subjectsData = await api.getSubjects(batchId);
-                setBatchSubjects(subjectsData);
-            }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
-    };
-    loadData();
-  }, [batchId]);
-
-  if (loading) {
-      return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" size={40}/></div>;
-  }
+  const batch = batches.find(b => b.id === batchId);
+  const batchSubjects = subjects.filter(s => s.batchId === batchId);
 
   if (!batch) return <div>Batch not found</div>;
 
@@ -94,30 +66,26 @@ export const BatchDetails = () => {
         {activeTab === 'classes' ? (
           <div>
             <h2 className="text-xl font-bold mb-6">Subjects</h2>
-            {batchSubjects.length === 0 ? (
-                <div className="text-gray-500 py-10">No subjects found for this batch.</div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {batchSubjects.map(subject => {
-                    const Icon = iconMap[subject.icon] || Book;
-                    return (
-                    <div 
-                        key={subject.id}
-                        onClick={() => navigate(`/batch/${batchId}/subject/${subject.id}`)}
-                        className="bg-surface border border-border p-6 rounded-xl hover:border-gray-500 cursor-pointer transition-all flex items-center gap-4 group hover:bg-white/5"
-                    >
-                        <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400 group-hover:bg-blue-500/20 transition-colors shadow-inner">
-                        <Icon size={24} />
-                        </div>
-                        <div>
-                        <h3 className="font-bold text-lg group-hover:text-primary transition-colors">{subject.name}</h3>
-                        <p className="text-xs text-gray-400 mt-1">{subject.chapterCount} Chapters</p>
-                        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {batchSubjects.map(subject => {
+                const Icon = iconMap[subject.icon] || Book;
+                return (
+                  <div 
+                    key={subject.id}
+                    onClick={() => navigate(`/batch/${batchId}/subject/${subject.id}`)}
+                    className="bg-surface border border-border p-6 rounded-xl hover:border-gray-500 cursor-pointer transition-all flex items-center gap-4 group hover:bg-white/5"
+                  >
+                    <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400 group-hover:bg-blue-500/20 transition-colors shadow-inner">
+                       <Icon size={24} />
                     </div>
-                    );
-                })}
-                </div>
-            )}
+                    <div>
+                      <h3 className="font-bold text-lg group-hover:text-primary transition-colors">{subject.name}</h3>
+                      <p className="text-xs text-gray-400 mt-1">{subject.chapterCount} Chapters</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ) : (
           <div className="bg-surface border border-border rounded-xl p-6 md:p-8 flex flex-col md:flex-row gap-8">
@@ -159,7 +127,7 @@ export const BatchDetails = () => {
                     <div>
                         <span className="text-gray-400 font-medium mr-2">Subjects:</span>
                         <span className="text-white">
-                            {batchSubjects.map(s => s.name).join(', ') || "Various Subjects"}
+                            {batchSubjects.map(s => s.name).join(', ') || "Physics, Chemistry & Maths"}
                         </span>
                     </div>
                 </div>
@@ -170,7 +138,7 @@ export const BatchDetails = () => {
                 <div className="bg-[#1e1e24] border border-border rounded-xl overflow-hidden shadow-2xl sticky top-24">
                    <div className="relative">
                       <img src={batch.imageUrl} alt="promo" className="w-full h-48 object-cover" />
-                      {batch.tags.includes('New') && <span className="absolute top-2 right-2 bg-accent text-black text-xs font-bold px-2 py-1 rounded shadow-md">New</span>}
+                      <span className="absolute top-2 right-2 bg-accent text-black text-xs font-bold px-2 py-1 rounded shadow-md">New</span>
                    </div>
                    <div className="p-5 space-y-4">
                       <div className="flex justify-between items-center">
