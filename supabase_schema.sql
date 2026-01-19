@@ -1,86 +1,59 @@
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
--- 1. Batches Table
-create table if not exists batches (
+-- 1. Programs (e.g. JEE, NEET, Board Exams)
+create table if not exists programs (
   id uuid default uuid_generate_v4() primary key,
-  title text not null,
-  description text,
-  image_url text,
-  tags text[],
-  price numeric default 0,
-  original_price numeric default 0,
-  is_free boolean default false,
-  class_name text,
-  language text,
-  start_date date,
-  end_date date,
-  validity_date date,
-  features text[],
-  created_at timestamptz default now()
+  name text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 2. Subjects Table
-create table if not exists subjects (
+-- 2. Classes (e.g. 11th, 12th, Dropper)
+create table if not exists classes (
+  id uuid default uuid_generate_v4() primary key,
+  name text not null,
+  program_id uuid references programs(id) on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 3. Streams (e.g. Science, Arts, General) - Optional
+create table if not exists streams (
+  id uuid default uuid_generate_v4() primary key,
+  name text not null,
+  class_level_id uuid references classes(id) on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 4. Master Subjects (The global list available for selection)
+create table if not exists master_subjects (
   id uuid default uuid_generate_v4() primary key,
   name text not null,
   icon text default 'Book',
-  batch_id uuid references batches(id) on delete cascade,
-  created_at timestamptz default now()
+  program_id uuid references programs(id) on delete cascade,
+  class_level_id uuid references classes(id) on delete cascade,
+  stream_id uuid references streams(id) on delete cascade,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 3. Chapters Table
-create table if not exists chapters (
-  id uuid default uuid_generate_v4() primary key,
-  title text not null,
-  subject_id uuid references subjects(id) on delete cascade,
-  "order" int default 1,
-  created_at timestamptz default now()
+-- 5. Update Batches table to support hierarchy (Storing IDs loosely or properly)
+-- Adding columns if they don't exist
+alter table batches add column if not exists program_id uuid references programs(id);
+alter table batches add column if not exists class_id uuid references classes(id);
+alter table batches add column if not exists stream_id uuid references streams(id);
+
+-- 7. Update Features to JSONB (Structured Data)
+alter table batches drop column if exists features;
+alter table batches add column if not exists features jsonb default '[]'::jsonb;
+
+-- 6. Batch Subjects (Many-to-Many link between Batches and Master Subjects)
+create table if not exists batch_subjects (
+  batch_id uuid references batches(id) on delete cascade not null,
+  subject_id uuid references master_subjects(id) on delete cascade not null,
+  primary key (batch_id, subject_id)
 );
 
--- 4. Content Items Table (Lectures, Notes, Quizzes)
-create table if not exists content_items (
-  id uuid default uuid_generate_v4() primary key,
-  title text not null,
-  type text not null, -- 'VIDEO', 'PDF', 'QUIZ', 'DPP_VIDEO'
-  chapter_id uuid references chapters(id) on delete cascade,
-  url text,
-  duration text,
-  teacher text,
-  upload_date date default CURRENT_DATE,
-  thumbnail_url text,
-  questions int,
-  marks int,
-  quiz_data jsonb,
-  sequence_order int default 1, -- NEW: To maintain playlist order (Lec 1, Lec 2...)
-  created_at timestamptz default now()
-);
-
--- RLS Policies (Open for now as per instruction)
-alter table batches enable row level security;
-alter table subjects enable row level security;
-alter table chapters enable row level security;
-alter table content_items enable row level security;
-
--- Drop existing policies to avoid conflicts if re-running
-drop policy if exists "Public Batches Read" on batches;
-drop policy if exists "Public Subjects Read" on subjects;
-drop policy if exists "Public Chapters Read" on chapters;
-drop policy if exists "Public Content Read" on content_items;
-drop policy if exists "Public Batches Insert" on batches;
-drop policy if exists "Public Subjects Insert" on subjects;
-drop policy if exists "Public Chapters Insert" on chapters;
-drop policy if exists "Public Content Insert" on content_items;
-drop policy if exists "Public Content Delete" on content_items;
-
--- Create permissive policies
-create policy "Public Batches Read" on batches for select using (true);
-create policy "Public Subjects Read" on subjects for select using (true);
-create policy "Public Chapters Read" on chapters for select using (true);
-create policy "Public Content Read" on content_items for select using (true);
-
-create policy "Public Batches Insert" on batches for insert with check (true);
-create policy "Public Subjects Insert" on subjects for insert with check (true);
-create policy "Public Chapters Insert" on chapters for insert with check (true);
-create policy "Public Content Insert" on content_items for insert with check (true);
-create policy "Public Content Delete" on content_items for delete using (true);
+-- SEED DATA (Optional, remove if you want manual creation)
+-- Program: Competitive Exams
+-- insert into programs (id, name) values ('a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'Competitive Exams');
+-- Class: Dropper
+-- insert into classes (program_id, name) values ('a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'Dropper');

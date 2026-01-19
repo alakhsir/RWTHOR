@@ -1,74 +1,55 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, User, Ban, GraduationCap } from 'lucide-react';
-import { batches } from '../services/mockData';
+import { Calendar, User, Ban, GraduationCap, Loader2 } from 'lucide-react';
+import { api } from '../services/api';
+import { Batch } from '../types';
+import { BatchCard } from '../components/BatchCard';
 
 export const MyBatches = () => {
   const navigate = useNavigate();
-  const myBatches = batches.filter(b => b.enrolled);
+  const [myBatches, setMyBatches] = useState<Batch[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBatches = async () => {
+      try {
+        const allBatches = await api.getBatches();
+        // In a real app, we'd filter by enrolled or fetch /my-batches
+        // For now, let's assume all fetched batches are available or filter if 'enrolled' property exists
+        const enrolled = allBatches.filter(b => b.enrolled || b.isFree); // Assuming free batches are auto-enrolled or similar logic
+        setMyBatches(enrolled);
+      } catch (error) {
+        console.error("Failed to load batches", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBatches();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="animate-spin text-primary" size={40} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">My Batches</h1>
-      
+
       {myBatches.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {myBatches.map(batch => (
-            <div key={batch.id} className="bg-surface border border-border rounded-xl overflow-hidden hover:border-gray-600 transition-all">
-              {/* Header with Title */}
-              <div className="p-4 border-b border-border flex justify-between items-start">
-                 <h3 className="font-bold text-lg">{batch.title}</h3>
-                 <span className="bg-accent text-black text-[10px] font-bold px-2 py-0.5 rounded">New</span>
-              </div>
-
-              {/* Image Banner */}
-              <div className="relative h-40">
-                <img src={batch.imageUrl} alt={batch.title} className="w-full h-full object-cover" />
-                <span className="absolute bottom-3 left-3 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
-                  {batch.language}
-                </span>
-              </div>
-
-              {/* Details */}
-              <div className="p-4 space-y-3">
-                <div className="flex items-center gap-2 text-gray-400 text-xs">
-                   <User size={14} />
-                   <span>For {batch.class}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-400 text-xs">
-                   <Calendar size={14} />
-                   <span>Starts on <span className="text-white">{batch.startDate}</span> | Ends on <span className="text-white">{batch.endDate}</span></span>
-                </div>
-
-                <div className="flex items-center justify-between mt-2">
-                   <div className="flex items-center gap-2">
-                     <span className="text-secondary font-bold">₹ FREE</span>
-                     <span className="text-gray-600 text-xs line-through">₹0</span>
-                   </div>
-                   <div className="bg-secondary/10 text-secondary text-xs px-2 py-1 rounded">
-                     100% Free For Students
-                   </div>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="p-4 grid grid-cols-2 gap-3 border-t border-border">
-                <button 
-                  onClick={() => navigate(`/batch/${batch.id}`)}
-                  className="bg-surface border border-gray-600 hover:bg-gray-800 text-white text-sm font-medium py-2 rounded flex items-center justify-center gap-2"
-                >
-                  <GraduationCap size={16} /> Study
-                </button>
-                <button className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 text-sm font-medium py-2 rounded flex items-center justify-center gap-2">
-                  <Ban size={16} /> Unenroll
-                </button>
-              </div>
+            <div key={batch.id} className="h-full">
+              <BatchCard batch={batch} />
             </div>
           ))}
         </div>
       ) : (
         <div className="text-center py-20 text-gray-500">
-           No batches enrolled. Go to "Batches" to enroll.
+          No batches enrolled. Go to "Batches" to enroll.
         </div>
       )}
     </div>

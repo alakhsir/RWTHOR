@@ -1,15 +1,15 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  Play, Pause, RotateCcw, RotateCw, Maximize, Minimize, Volume2, VolumeX,
-  Download, FileText, Clock, BarChart2, Video, X, ChevronRight, ChevronLeft,
-  Settings, Check, Menu, Zap, Target, Trophy, AlertCircle, ArrowLeft, ChevronsRight, ChevronsLeft,
-  CheckCircle2, Loader2, AlertTriangle
+  FileText, Clock, BarChart2, Video, X, ChevronRight, ChevronLeft,
+  Check, Menu, Zap, Target, Trophy, AlertCircle, CheckCircle2, Loader2,
+  Play, Download, ArrowLeft, Maximize, Minimize
+  // Kept some icons likely used in UI cards or other modals
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ContentType, ContentItem, Chapter } from '../types';
-import ReactPlayer from 'react-player';
+import { VideoPlayer } from '../components/VideoPlayer';
 
 export const ChapterView = () => {
   const { batchId, subjectId, chapterId } = useParams();
@@ -25,29 +25,8 @@ export const ChapterView = () => {
   const [activeVideo, setActiveVideo] = useState<ContentItem | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
-  // Custom Video Player States
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const playerContainerRef = useRef<HTMLDivElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showControls, setShowControls] = useState(true);
-
-  // Settings State
-  const [showSettings, setShowSettings] = useState(false);
-  const [settingsView, setSettingsView] = useState<'main' | 'speed' | 'quality'>('main');
-  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
-  const [videoQuality, setVideoQuality] = useState('Auto (720p)');
-
-  // Animation States
-  const [seekAnimation, setSeekAnimation] = useState<'forward' | 'backward' | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [videoError, setVideoError] = useState(false);
-
-  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Animation States (kept if needed for general UI, but mostly removed video ones)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Quiz states
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -55,7 +34,6 @@ export const ChapterView = () => {
   const [visitedQuestions, setVisitedQuestions] = useState<Set<number>>(new Set());
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const isAllContent = chapterId === 'all';
 
@@ -66,16 +44,9 @@ export const ChapterView = () => {
         // Load Chapter Info (Mock 'All Contents' chapter if 'all')
         if (isAllContent) {
           setChapter({ id: 'all', title: 'All Contents', subjectId: subjectId!, lectureCount: 0, notesCount: 0, quizCount: 0, order: 0 });
-          // For 'all', we might need to fetch all content for subject. 
-          // For simplicity, let's just fetch all content if the API supports it, or handle it in UI.
-          // Current API `getContent` takes `chapterId`. We might need `getSubjectContent` or iterate chapters.
-          // Re-using the `getSubjectContentStats` approach but fetching full items might be heavy.
-          // Let's implement a 'Fetch all for subject' in the component by fetching chapters first.
           const flatContent = await api.getSubjectContent(subjectId!);
           setAllContent(flatContent);
         } else if (chapterId) {
-          // We don't have getChapterById in API, but we can fetch chapters for subject and find it, or add getChapterById.
-          // Let's assume we can fetch all chapters for subject and filter.
           const chapters = await api.getChapters(subjectId!);
           const found = chapters.find(c => c.id === chapterId);
           setChapter(found);
@@ -111,390 +82,28 @@ export const ChapterView = () => {
   // --- Helpers ---
   const getEmbedUrl = (url?: string) => {
     if (!url) return '';
-
     // Youtube
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
       let videoId = '';
       if (url.includes('youtu.be')) videoId = url.split('/').pop() || '';
       else videoId = new URL(url).searchParams.get('v') || '';
-      // rel=0: Limit recommendations to same channel
-      // modestbranding=1: Reduce YT branding
-      // iv_load_policy=3: Hide annotations
       return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3`;
     }
-
     // Google Drive (Video or PDF)
     if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
-      // Convert /view to /preview for embedding
       return url.replace(/\/view.*/, '/preview').replace(/\/edit.*/, '/preview');
     }
-
     // Default PDF Viewer for direct links
+    // For Bunny.net or direct storage, returning the URL directly works best in modern browsers
     if (url.match(/\.pdf$/i)) {
-      return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+      // You can return the URL directly for native browser PDF rendering
+      return url;
     }
-
     return url;
   };
 
-  const getVideoType = (url: string) => {
-    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
-    // Restoring previous behavior: Try to play everything else (including Drive) in the custom player
-    return 'direct';
-  };
-
-  // --- Video Player Logic ---
-  const playerRef = useRef<any>(null); // Type 'any' for ReactPlayer ref or import ReactPlayer type if available
-
-  // Use ReactPlayer's onProgress to update time
-  const handleProgress = (state: { played: number; playedSeconds: number; loaded: number; loadedSeconds: number }) => {
-    if (!seekAnimation) { // Avoid fighting with seeker
-      setCurrentTime(state.playedSeconds);
-    }
-  };
-
-  const handleDuration = (duration: number) => {
-    setDuration(duration);
-  };
-
-  // Video Event Handling
-  useEffect(() => {
-    // Reset state when video changes
-    setIsPlaying(false);
-    setVideoError(false);
-    setSeekAnimation(null);
-    setIsLoading(true);
-
-    const video = videoRef.current;
-    if (!video || !activeVideo?.url.includes('.webm')) return;
-
-    const handleTimeUpdate = () => {
-      if (!seekAnimation) {
-        setCurrentTime(video.currentTime);
-      }
-      setIsLoading(false);
-    };
-
-    const handleLoadedMetadata = () => {
-      setDuration(video.duration);
-      setIsLoading(false);
-    };
-
-    const handleEnded = () => setIsPlaying(false);
-    const handleWaiting = () => setIsLoading(true);
-    const handlePlaying = () => setIsLoading(false);
-    const handleError = () => {
-      setVideoError(true);
-      setIsLoading(false);
-    };
-
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('ended', handleEnded);
-    video.addEventListener('waiting', handleWaiting);
-    video.addEventListener('playing', handlePlaying);
-    video.addEventListener('error', handleError);
-
-    return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdate);
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('ended', handleEnded);
-      video.removeEventListener('waiting', handleWaiting);
-      video.removeEventListener('playing', handlePlaying);
-      video.removeEventListener('error', handleError);
-    };
-  }, [activeVideo]);
-
-  // Keyboard Shortcuts
-  useEffect(() => {
-    if (!activeVideo) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent default scrolling for space/arrows if valid video
-      if ([' ', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) e.preventDefault();
-
-      switch (e.key.toLowerCase()) {
-        case ' ': case 'k': togglePlay(); break;
-        case 'arrowright': seek(10); break;
-        case 'arrowleft': seek(-10); break;
-        case 'f': toggleFullscreen(); break;
-        case 'm': toggleMute(); break;
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeVideo, isPlaying, isFullscreen, isMuted]);
-
-  const togglePlay = () => {
-    const nextPlaying = !isPlaying;
-    setIsPlaying(nextPlaying);
-
-    // Native Video Support
-    if (activeVideo?.url.includes('.webm') && videoRef.current) {
-      nextPlaying ? videoRef.current.play() : videoRef.current.pause();
-    }
-
-    handleUserInteraction();
-  };
-
-  const seek = (seconds: number) => {
-    let newTime = currentTime + seconds;
-
-    if (activeVideo?.url.includes('.webm') && videoRef.current) {
-      newTime = videoRef.current.currentTime + seconds;
-      videoRef.current.currentTime = newTime;
-    } else if (playerRef.current) {
-      newTime = playerRef.current.getCurrentTime() + seconds;
-      playerRef.current.seekTo(newTime, 'seconds');
-    }
-
-    setCurrentTime(newTime);
-    handleUserInteraction();
-    setSeekAnimation(null);
-    setTimeout(() => setSeekAnimation(seconds > 0 ? 'forward' : 'backward'), 10);
-    setTimeout(() => setSeekAnimation(null), 600);
-  };
-
-  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = Number(e.target.value);
-    setCurrentTime(time);
-
-    if (activeVideo?.url.includes('.webm') && videoRef.current) {
-      videoRef.current.currentTime = time;
-    } else if (playerRef.current) {
-      playerRef.current.seekTo(time, 'seconds');
-    }
-  };
-
-  const toggleMute = () => {
-    const nextMuted = !isMuted;
-    setIsMuted(nextMuted);
-
-    // Sync with native video if WebM
-    if (activeVideo?.url.includes('.webm') && videoRef.current) {
-      videoRef.current.muted = nextMuted;
-    }
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = Number(e.target.value);
-    setVolume(val);
-    setIsMuted(val === 0);
-
-    // Sync with native video if WebM
-    if (activeVideo?.url.includes('.webm') && videoRef.current) {
-      videoRef.current.volume = val;
-      videoRef.current.muted = val === 0;
-    }
-  };
-
-  const toggleFullscreen = () => {
-    if (!playerContainerRef.current) return;
-    if (!document.fullscreenElement) {
-      playerContainerRef.current.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
-    }
-  };
-
-  const handleSpeedChange = (speed: number) => {
-    setPlaybackSpeed(speed);
-    setSettingsView('main');
-
-    // Sync with native video if WebM
-    if (activeVideo?.url.includes('.webm') && videoRef.current) {
-      videoRef.current.playbackRate = speed;
-    }
-  };
-
-  const handleQualityChange = (quality: string) => {
-    setVideoQuality(quality);
-    setSettingsView('main');
-  };
-
-  const handleUserInteraction = () => {
-    setShowControls(true);
-    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-    controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying && !showSettings) setShowControls(false);
-    }, 3000);
-  };
-
-  const formatVideoTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
 
 
-  // --- RENDER VIDEO PLAYER (Unified) ---
-  if (activeVideo) {
-    const isDrive = activeVideo.url?.includes('drive.google.com') || activeVideo.url?.includes('docs.google.com');
-
-    // We treat everything via ReactPlayer now
-    return (
-      <div className="fixed inset-0 bg-black z-50 flex flex-col animate-in fade-in duration-300">
-        <style>{`
-            @keyframes ripple {
-                0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-                40% { transform: translate(-50%, -50%) scale(1.0); opacity: 1; }
-                100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
-            }
-            .animate-ripple { animation: ripple 0.6s ease-out forwards; }
-            .settings-scroll::-webkit-scrollbar { width: 4px; }
-            .settings-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-            .settings-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
-            `}</style>
-
-        <div className={`absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/90 to-transparent z-30 flex items-start pt-6 px-6 pointer-events-none transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-          <div className="pointer-events-auto flex items-center gap-4 w-full">
-            <button onClick={() => setActiveVideo(null)} className="text-white/90 hover:bg-white/10 p-2 rounded-full transition-colors"><ChevronLeft size={28} /></button>
-            <div className="flex-1">
-              <h2 className="text-white font-bold text-lg leading-tight line-clamp-1 drop-shadow-md">{activeVideo.title}</h2>
-            </div>
-          </div>
-        </div>
-
-        <div ref={playerContainerRef} className="flex-1 relative bg-black flex items-center justify-center group outline-none overflow-hidden" onMouseMove={handleUserInteraction} onClick={handleUserInteraction} onMouseLeave={() => isPlaying && !showSettings && setShowControls(false)}>
-
-          {/* Player Logic: Iframe for Drive, Native Video for WebM, ReactPlayer for others */}
-          {isDrive ? (
-            <iframe
-              src={getEmbedUrl(activeVideo.url)}
-              className="w-full h-full border-0"
-              allow="autoplay; fullscreen"
-              title={activeVideo.title}
-            />
-          ) : activeVideo.url.includes('.webm') ? (
-            videoError ? (
-              <div className="flex flex-col items-center justify-center text-red-500 gap-4 p-8 text-center">
-                <AlertTriangle size={48} />
-                <div>
-                  <h3 className="text-xl font-bold text-white mb-2">Video Playback Error</h3>
-                  <p className="text-gray-400">The video could not be loaded. Please check the URL or try again later.</p>
-                  <p className="text-gray-500 text-xs mt-4">URL: {activeVideo.url.substring(0, 50)}...</p>
-                </div>
-                <button onClick={() => setActiveVideo(null)} className="mt-4 bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-lg">Close Player</button>
-              </div>
-            ) : (
-              <>
-                <video
-                  ref={videoRef}
-                  src={activeVideo.url.trim().replace(/\s/g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29')}
-                  poster={activeVideo.thumbnailUrl}
-                  className="w-full h-full max-h-screen object-contain"
-                  onClick={(e) => { e.stopPropagation(); togglePlay(); }}
-                  autoPlay
-                  playsInline
-                  crossOrigin="anonymous"
-                >
-                  <source src={activeVideo.url.trim().replace(/\s/g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29')} type="video/webm" />
-                  Your browser does not support the video tag.
-                </video>
-
-                {/* Loading Spinner */}
-                {isLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                    <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                )}
-              </>
-            )
-          ) : (
-            <ReactPlayer
-              ref={playerRef}
-              url={activeVideo.url.trim().replace(/\s/g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29')}
-              width="100%"
-              height="100%"
-              playing={isPlaying}
-              volume={volume}
-              muted={isMuted}
-              playbackRate={playbackSpeed}
-              onProgress={handleProgress}
-              onDuration={handleDuration}
-              onEnded={() => setIsPlaying(false)}
-              onError={(e) => console.error("Video Error:", e)}
-              config={{
-                file: {
-                  attributes: {
-                    controlsList: 'nodownload'
-                  }
-                }
-              }}
-              style={{ position: 'absolute', top: 0, left: 0 }}
-            />
-          )}
-
-
-          {/* Click to Play Overlay (if paused and no controls interacting) */}
-          {!isPlaying && !showSettings && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 pointer-events-none">
-              {/* Play icon is handled by controls, but maybe a big one? */}
-            </div>
-          )}
-
-          {seekAnimation === 'backward' && (<div className="absolute left-[25%] top-1/2 flex flex-col items-center pointer-events-none animate-ripple z-40 transform -translate-x-1/2 -translate-y-1/2"><div className="bg-black/60 p-6 rounded-full backdrop-blur-sm"><ChevronsLeft size={40} className="text-white drop-shadow-lg" /></div><span className="text-white font-bold text-sm mt-2 drop-shadow-md bg-black/40 px-2 py-0.5 rounded">-10s</span></div>)}
-          {seekAnimation === 'forward' && (<div className="absolute left-[75%] top-1/2 flex flex-col items-center pointer-events-none animate-ripple z-40 transform -translate-x-1/2 -translate-y-1/2"><div className="bg-black/60 p-6 rounded-full backdrop-blur-sm"><ChevronsRight size={40} className="text-white drop-shadow-lg" /></div><span className="text-white font-bold text-sm mt-2 drop-shadow-md bg-black/40 px-2 py-0.5 rounded">+10s</span></div>)}
-
-          <div className={`absolute inset-0 flex items-center justify-center z-20 pointer-events-none transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-            <div className="flex items-center gap-8 md:gap-16 pointer-events-auto">
-              <button onClick={(e) => { e.stopPropagation(); seek(-10); }} className="text-white/80 hover:text-white hover:bg-black/40 p-4 rounded-full transition-all transform hover:scale-110 active:scale-95"><RotateCcw size={32} /></button>
-              <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="w-16 h-16 md:w-20 md:h-20 bg-primary/90 hover:bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform">{isPlaying ? <Pause size={32} fill="white" /> : <Play size={32} fill="white" className="ml-1" />}</button>
-              <button onClick={(e) => { e.stopPropagation(); seek(10); }} className="text-white/80 hover:text-white hover:bg-black/40 p-4 rounded-full transition-all transform hover:scale-110 active:scale-95"><RotateCw size={32} /></button>
-            </div>
-          </div>
-          <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent px-4 pb-4 pt-10 z-30 transition-all duration-300 ${showControls ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'}`}>
-            <div className="group/slider relative w-full h-1 hover:h-2 bg-gray-600/60 cursor-pointer mb-3 rounded-full transition-all touch-none">
-              <div className="absolute top-0 left-0 h-full bg-primary rounded-full relative" style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}>
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow scale-0 group-hover/slider:scale-100 transition-transform"></div>
-              </div>
-              <input type="range" min="0" max={duration || 100} value={currentTime} onChange={handleSeekChange} onClick={(e) => e.stopPropagation()} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-            </div>
-            <div className="flex items-center justify-between text-white select-none">
-              <div className="flex items-center gap-4">
-                <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="hover:text-primary transition-colors">{isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}</button>
-                <div className="flex items-center gap-2 group/vol">
-                  <button onClick={(e) => { e.stopPropagation(); toggleMute(); }} className="hover:text-primary">{isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}</button>
-                  <div className="w-0 overflow-hidden group-hover/vol:w-20 transition-all duration-300"><input type="range" min="0" max="1" step="0.1" value={isMuted ? 0 : volume} onChange={handleVolumeChange} onClick={(e) => e.stopPropagation()} className="h-1 bg-gray-500 rounded-full accent-white cursor-pointer w-20" /></div>
-                </div>
-                <div className="text-xs font-mono font-medium text-gray-300">{formatVideoTime(currentTime)} / {formatVideoTime(duration)}</div>
-              </div>
-              <div className="flex items-center gap-4 relative">
-                <div className="relative">
-                  <button onClick={(e) => { e.stopPropagation(); setShowSettings(!showSettings); setSettingsView('main'); }} className={`flex items-center gap-1 text-sm font-bold px-3 py-1.5 rounded-full transition-all ${showSettings ? 'bg-white text-black scale-105' : 'bg-white/10 hover:bg-white/20'}`}><Settings size={18} className={`transition-transform duration-500 ${showSettings ? 'rotate-90' : ''}`} /><span className="hidden sm:inline">Settings</span></button>
-                  {showSettings && (
-                    <div className="absolute bottom-full right-0 mb-4 w-64 bg-[#1e1e24] border border-gray-700/50 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 zoom-in-95 duration-200 z-50 origin-bottom-right">
-                      {settingsView === 'main' && (
-                        <div className="py-2">
-                          <div className="px-4 py-2 border-b border-gray-700/50 mb-1"><h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Settings</h3></div>
-                          <button onClick={(e) => { e.stopPropagation(); setSettingsView('speed'); }} className="w-full flex justify-between items-center px-4 py-3 text-sm text-gray-200 hover:bg-white/10 transition-colors"><div className="flex items-center gap-3"><Clock size={18} className="text-gray-400" /> Playback Speed</div><div className="flex items-center gap-1 text-gray-400 text-xs font-medium">{playbackSpeed === 1 ? 'Normal' : playbackSpeed + 'x'} <ChevronRight size={14} /></div></button>
-                          <button onClick={(e) => { e.stopPropagation(); setSettingsView('quality'); }} className="w-full flex justify-between items-center px-4 py-3 text-sm text-gray-200 hover:bg-white/10 transition-colors"><div className="flex items-center gap-3"><Zap size={18} className="text-gray-400" /> Quality</div><div className="flex items-center gap-1 text-gray-400 text-xs font-medium">{videoQuality} <ChevronRight size={14} /></div></button>
-                        </div>
-                      )}
-                      {settingsView === 'speed' && (
-                        <div className="py-1">
-                          <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-700/50 bg-black/20"><button onClick={(e) => { e.stopPropagation(); setSettingsView('main'); }} className="p-1 hover:bg-white/10 rounded-full transition-colors"><ArrowLeft size={16} /></button><span className="text-sm font-bold">Playback Speed</span></div>
-                          <div className="max-h-60 overflow-y-auto settings-scroll p-1">{[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map(speed => (<button key={speed} onClick={(e) => { e.stopPropagation(); handleSpeedChange(speed); }} className={`w-full text-left px-4 py-2.5 text-sm flex justify-between items-center rounded-lg mb-0.5 ${playbackSpeed === speed ? 'bg-primary text-white font-medium' : 'text-gray-300 hover:bg-white/5'}`}><span>{speed === 1.0 ? 'Normal' : speed + 'x'}</span>{playbackSpeed === speed && <Check size={16} />}</button>))}</div>
-                        </div>
-                      )}
-                      {settingsView === 'quality' && (
-                        <div className="py-1">
-                          <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-700/50 bg-black/20"><button onClick={(e) => { e.stopPropagation(); setSettingsView('main'); }} className="p-1 hover:bg-white/10 rounded-full transition-colors"><ArrowLeft size={16} /></button><span className="text-sm font-bold">Quality</span></div>
-                          <div className="max-h-60 overflow-y-auto settings-scroll p-1">{['Auto', '1080p', '720p', '480p'].map(quality => (<button key={quality} onClick={(e) => { e.stopPropagation(); handleQualityChange(quality); }} className={`w-full text-left px-4 py-2.5 text-sm flex justify-between items-center rounded-lg mb-0.5 ${videoQuality === quality ? 'bg-primary text-white font-medium' : 'text-gray-300 hover:bg-white/5'}`}><span>{quality}</span>{videoQuality === quality && <Check size={16} />}</button>))}</div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="hover:text-primary p-1.5 hover:bg-white/10 rounded-full transition-colors">{isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
   const handleStartQuiz = (item: ContentItem) => {
     setActiveQuiz(item);
     setCurrentQuestionIndex(0);
@@ -558,6 +167,40 @@ export const ChapterView = () => {
     });
     return score;
   };
+
+  // --- RENDER VIDEO PLAYER (Unified) ---
+  if (activeVideo) {
+    const isDrive = activeVideo.url?.includes('drive.google.com') || activeVideo.url?.includes('docs.google.com');
+
+    // For Drive links, we still use iframe. For MP4/WebM/Others we use new VideoPlayer
+    if (isDrive) {
+      return (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col animate-in fade-in duration-300">
+          <div className="absolute top-0 left-0 right-0 h-16 bg-black flex items-center px-4 z-40">
+            <button onClick={() => setActiveVideo(null)} className="text-white hover:text-gray-300"><ChevronLeft size={28} /></button>
+            <span className="ml-4 text-white font-bold truncate">{activeVideo.title}</span>
+          </div>
+          <div className="flex-1 pt-16">
+            <iframe
+              src={getEmbedUrl(activeVideo.url)}
+              className="w-full h-full border-0"
+              allow="autoplay; fullscreen"
+              title={activeVideo.title}
+            />
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <VideoPlayer
+        url={activeVideo.url}
+        title={activeVideo.title}
+        thumbnailUrl={activeVideo.thumbnailUrl}
+        onClose={() => setActiveVideo(null)}
+      />
+    );
+  }
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" size={40} /></div>;
   if (!chapter) return <div>Chapter not found</div>;
@@ -867,12 +510,14 @@ export const ChapterView = () => {
         </div>
       </div>
 
+
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {contentList.length > 0 ? (
           contentList.map(item => (
             <div
               key={item.id}
-              className={`bg-surface border rounded-xl overflow-hidden group transition-all flex flex-col h-full shadow-lg cursor-pointer ${item.type === ContentType.QUIZ ? 'border-green-900/40 hover:border-green-500' : 'border-border hover:border-gray-500'}`}
+              className={`bg-transparent border rounded-xl overflow-hidden group transition-all flex flex-col h-full shadow-lg cursor-pointer ${item.type === ContentType.QUIZ ? 'border-green-900/40 hover:border-green-500' : 'border-border hover:border-gray-500'}`}
               onClick={() => {
                 if (item.type === ContentType.VIDEO || item.type === ContentType.DPP_VIDEO) setActiveVideo(item);
               }}
@@ -885,8 +530,11 @@ export const ChapterView = () => {
                     <div className="absolute bottom-3 right-3 w-10 h-10 bg-primary rounded-full flex items-center justify-center pl-1 shadow-lg shadow-black/50 group-hover:scale-110 transition-transform"><Play fill="white" size={18} /></div>
                   </div>
                   <div className="p-4 flex flex-col flex-1">
-                    <div className="flex items-center justify-between text-xs text-blue-400 font-medium mb-3"><span>{item.uploadDate}</span><div className="flex items-center gap-1 text-gray-400"><Clock size={12} /><span>{item.duration}</span></div></div>
-                    <h3 className="text-lg font-bold text-white leading-snug line-clamp-2">{item.title}</h3>
+                    <div className="flex items-center justify-between text-xs font-medium mb-3">
+                      <span className="text-gray-400 font-bold">{new Date(item.uploadDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                      <div className="flex items-center gap-1 text-gray-400"><Clock size={12} /><span>{item.duration}</span></div>
+                    </div>
+                    <h3 className="text-sm font-bold text-white leading-snug line-clamp-2">{item.title}</h3>
                   </div>
                 </>
               )}
@@ -896,7 +544,7 @@ export const ChapterView = () => {
                 <div className="flex flex-col h-full p-5 relative">
                   <div className="flex-1 mb-6">
                     <h3 className="font-bold text-lg text-gray-100 leading-snug mb-3 line-clamp-3">{item.title}</h3>
-                    <p className="text-xs text-blue-500 font-medium">Uploaded on {item.uploadDate}</p>
+                    <p className="text-xs text-gray-400 font-bold">{new Date(item.uploadDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                   </div>
                   <div className="pt-4 flex items-center justify-between border-t border-border/50">
                     {/* Preview Button */}
@@ -955,6 +603,6 @@ export const ChapterView = () => {
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 };

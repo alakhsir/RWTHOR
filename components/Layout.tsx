@@ -18,7 +18,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen
 } from 'lucide-react';
-import { currentUser } from '../services/mockData';
+import { api } from '../services/api';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -55,7 +55,7 @@ const Sidebar = ({ isOpen, closeMobile, collapsed, toggleCollapsed }: { isOpen: 
           <div className="w-8 h-8 bg-white text-black rounded-full flex items-center justify-center font-bold text-lg font-serif flex-shrink-0">
             P
           </div>
-          {!collapsed && <span className="font-bold text-lg text-white tracking-wide whitespace-nowrap overflow-hidden transition-all duration-300">EDTECH PRO</span>}
+          {!collapsed && <span className="font-bold text-lg text-foreground tracking-wide whitespace-nowrap overflow-hidden transition-all duration-300">EDTECH PRO</span>}
         </div>
 
         <nav className="mt-6 px-3 space-y-2">
@@ -68,8 +68,8 @@ const Sidebar = ({ isOpen, closeMobile, collapsed, toggleCollapsed }: { isOpen: 
               className={({ isActive }) => `
                 flex items-center gap-4 px-3 py-3 rounded-lg text-sm font-medium transition-colors
                 ${isActive
-                  ? 'bg-white text-black'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'}
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'}
                 ${collapsed ? 'justify-center' : ''}
               `}
             >
@@ -83,7 +83,7 @@ const Sidebar = ({ isOpen, closeMobile, collapsed, toggleCollapsed }: { isOpen: 
         <div className="absolute bottom-4 right-0 left-0 px-3 hidden lg:flex justify-end">
           <button
             onClick={toggleCollapsed}
-            className={`p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-all ${collapsed ? 'mx-auto' : ''}`}
+            className={`p-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-all ${collapsed ? 'mx-auto' : ''}`}
           >
             {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
           </button>
@@ -98,17 +98,24 @@ const Header = ({ toggleSidebar, collapsed }: { toggleSidebar: () => void, colla
   const location = useLocation();
   const isHome = location.pathname === '/';
 
+  // User State
+  const [user, setUser] = useState({ name: 'User', avatar: 'U', xp: 0 });
+
+  React.useEffect(() => {
+    api.getUserProfile().then(setUser);
+  }, []);
+
   return (
     <header className={`h-16 bg-background border-b border-border flex items-center justify-between px-4 lg:px-8 fixed top-0 right-0 z-30 transition-all duration-300 left-0 ${collapsed ? 'lg:left-20' : 'lg:left-64'}`}>
       <div className="flex items-center gap-4">
-        <button onClick={toggleSidebar} className="lg:hidden text-white p-2">
+        <button onClick={toggleSidebar} className="lg:hidden text-foreground p-2">
           <Menu size={24} />
         </button>
 
         {!isHome && (
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-gray-300 hover:text-white text-sm font-medium"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm font-medium"
           >
             <ChevronLeft size={18} />
             Back
@@ -117,24 +124,13 @@ const Header = ({ toggleSidebar, collapsed }: { toggleSidebar: () => void, colla
       </div>
 
       <div className="flex items-center gap-4">
-        {/* XP Badge */}
-        <div className="hidden sm:flex items-center gap-2 bg-[#2a2618] border border-[#554a1a] px-3 py-1.5 rounded-full">
-          <Star size={14} className="text-accent fill-accent" />
-          <span className="text-accent text-xs font-bold">{currentUser.xp} XP</span>
-        </div>
-
-        {/* Theme Toggle (Mock) */}
-        <button className="p-2.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all duration-200">
-          <Moon size={18} />
-        </button>
-
         {/* User Profile */}
         <div className="flex items-center gap-3 pl-4 border-l border-border">
           <div className="text-right hidden md:block">
-            <p className="text-sm text-white font-medium">Hi, {currentUser.name}</p>
+            <p className="text-sm text-foreground font-medium">Hi, {user.name}</p>
           </div>
-          <div className="w-9 h-9 bg-gray-700 rounded-full flex items-center justify-center text-xs font-bold text-gray-300">
-            {currentUser.avatar}
+          <div className="w-9 h-9 bg-muted rounded-full flex items-center justify-center text-xs font-bold text-foreground overflow-hidden">
+            {user.avatar.length > 2 ? <img src={user.avatar} alt="avatar" className="w-full h-full object-cover" /> : user.avatar}
           </div>
         </div>
       </div>

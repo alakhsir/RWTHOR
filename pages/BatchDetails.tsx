@@ -92,22 +92,28 @@ export const BatchDetails = () => {
       {/* Content */}
       <div className="min-h-[400px]">
         {activeTab === 'classes' ? (
-          <div>
+          <div className="border border-white/10 rounded-xl p-6">
             <h2 className="text-xl font-bold mb-6">Subjects</h2>
             {batchSubjects.length === 0 ? (
               <div className="text-gray-500 py-10">No subjects found for this batch.</div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {batchSubjects.map(subject => {
-                  const Icon = iconMap[subject.icon] || Book;
+                  const isUrl = subject.icon?.startsWith('http');
+                  const Icon = !isUrl ? (iconMap[subject.icon] || Book) : null;
+
                   return (
                     <div
                       key={subject.id}
                       onClick={() => navigate(`/batch/${batchId}/subject/${subject.id}`)}
-                      className="bg-surface border border-border p-6 rounded-xl hover:border-gray-500 cursor-pointer transition-all flex items-center gap-4 group hover:bg-white/5"
+                      className="border border-border p-6 rounded-xl hover:border-gray-500 cursor-pointer transition-all flex items-center gap-4 group hover:bg-white/5"
                     >
-                      <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400 group-hover:bg-blue-500/20 transition-colors shadow-inner">
-                        <Icon size={24} />
+                      <div className="w-12 h-12 flex items-center justify-center text-blue-400 transition-transform group-hover:scale-110 overflow-hidden">
+                        {isUrl ? (
+                          <img src={subject.icon} alt={subject.name} className="w-full h-full object-contain" />
+                        ) : (
+                          <Icon size={32} />
+                        )}
                       </div>
                       <div>
                         <h3 className="font-bold text-lg group-hover:text-primary transition-colors">{subject.name}</h3>
@@ -120,43 +126,50 @@ export const BatchDetails = () => {
             )}
           </div>
         ) : (
-          <div className="bg-surface border border-border rounded-xl p-6 md:p-8 flex flex-col md:flex-row gap-8">
-            <div className="flex-1 space-y-8">
-              <h2 className="text-xl font-bold border-b border-border pb-4">This Batch Includes</h2>
+          <div className="flex flex-col md:flex-row gap-8">
+            {/* Description Column */}
+            <div className="flex-1 border border-white/10 rounded-xl p-6 space-y-8">
+              <h2 className="text-xl font-bold border-b border-white/10 pb-4">This Batch Includes</h2>
 
               {/* Duration Section */}
-              <div className="flex gap-4 items-start">
-                <div className="p-2 bg-gray-800 rounded-lg">
-                  <Calendar className="text-gray-400" size={24} />
+              <div className="flex gap-4 items-center">
+                <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center shrink-0">
+                  <span className="text-xl">📆</span>
                 </div>
                 <div>
                   <p className="text-sm text-gray-400 font-medium">Course Duration:</p>
-                  <p className="font-semibold text-white mt-1">{batch.startDate} – {batch.endDate}</p>
+                  <p className="font-semibold text-white mt-0.5">{batch.startDate} – {batch.endDate}</p>
                 </div>
               </div>
 
               {/* Validity Feature */}
               {batch.validityDate && (
-                <div className="flex gap-3 items-center">
-                  <Star className="text-accent fill-accent shrink-0" size={20} />
+                <div className="flex gap-4 items-center">
+                  <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center shrink-0">
+                    <span className="text-lg">⭐</span>
+                  </div>
                   <span className="text-gray-200 font-medium">Validity: {batch.validityDate}</span>
                 </div>
               )}
 
               {/* Dynamic Features List */}
               <div className="space-y-4">
-                {batch.features.map((feature, idx) => (
-                  <div key={idx} className="flex gap-3 items-start">
-                    <Star className="text-accent fill-accent mt-0.5 shrink-0" size={20} />
-                    <span className="text-gray-300 text-sm md:text-base leading-relaxed">{feature}</span>
+                {batch.features.map((feature: any, idx) => (
+                  <div key={idx} className="flex gap-4 items-center">
+                    <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center shrink-0">
+                      <span className="text-lg">{feature.icon || '⭐'}</span>
+                    </div>
+                    <span className="text-gray-300 text-sm md:text-base leading-relaxed">{feature.text || feature}</span>
                   </div>
                 ))}
               </div>
 
               {/* Subjects List */}
-              <div className="flex gap-3 items-start pt-4 border-t border-border/50">
-                <div className="mt-0.5"><Book size={20} className="text-blue-400" /></div>
-                <div>
+              <div className="flex gap-4 items-start pt-4 border-t border-white/10">
+                <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center shrink-0">
+                  <span className="text-xl">📚</span>
+                </div>
+                <div className="mt-2">
                   <span className="text-gray-400 font-medium mr-2">Subjects:</span>
                   <span className="text-white">
                     {batchSubjects.map(s => s.name).join(', ') || "Various Subjects"}
@@ -166,32 +179,30 @@ export const BatchDetails = () => {
             </div>
 
             {/* Promo Card Side */}
-            <div className="w-full md:w-80 shrink-0">
-              <div className="bg-[#1e1e24] border border-border rounded-xl overflow-hidden shadow-2xl sticky top-24">
-                <div className="relative">
-                  <img src={batch.imageUrl} alt="promo" className="w-full h-48 object-cover" />
-                  {batch.tags.includes('New') && <span className="absolute top-2 right-2 bg-accent text-black text-xs font-bold px-2 py-1 rounded shadow-md">New</span>}
+            <div className="w-full md:w-[360px] shrink-0">
+              <div className="border border-white/10 rounded-xl overflow-hidden shadow-2xl sticky top-24">
+                {/* Image Section */}
+                <div className="relative h-48">
+                  <img src={batch.imageUrl} alt="promo" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                 </div>
+
                 <div className="p-5 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-400 bg-black/30 px-2 py-1 rounded">For {batch.class}</span>
-                    <span className="bg-green-600/20 text-green-500 border border-green-600/30 text-[10px] font-bold px-2 py-0.5 rounded">{batch.language}</span>
+                  <div className="flex justify-between items-center text-sm border-b border-white/10 pb-3">
+                    <span className="text-gray-400">For {batch.class}</span>
+                    <span className="bg-gray-800 text-gray-300 text-xs px-2 py-1 rounded">{batch.language}</span>
                   </div>
 
-                  <div className="text-center py-2">
-                    {batch.isFree ? (
-                      <span className="text-2xl font-bold text-secondary">FREE</span>
-                    ) : (
-                      <div className="flex items-center justify-center gap-2">
-                        <span className="text-2xl font-bold text-white">₹{batch.price}</span>
-                        <span className="text-sm text-gray-500 line-through">₹{batch.originalPrice}</span>
-                      </div>
-                    )}
-                  </div>
+                  {/* Buttons */}
+                  <div className="space-y-3">
+                    <button className="w-full bg-[#1e293b] hover:bg-[#334155] text-white/90 text-sm font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 border border-blue-500/30">
+                      <span className="text-blue-400">🎯</span> Enroll Now, To Ease Access
+                    </button>
 
-                  <button className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition-colors shadow-lg">
-                    {batch.enrolled ? "ALREADY ENROLLED" : "ENROLL NOW"}
-                  </button>
+                    <button className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2">
+                      ENROLL NOW <span className="text-lg">🏷️</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

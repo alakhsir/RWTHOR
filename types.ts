@@ -24,8 +24,11 @@ export interface Batch {
   validityDate: string; // New field
   enrolled: boolean;
   newContentCount?: number; // Count of new videos/content for notification badge
-  features: string[];
+  features: { icon: string; text: string }[];
   subjectIds: string[]; // Linked subjects
+  programId?: string;
+  classId?: string;
+  streamId?: string;
 }
 
 export interface Subject {
@@ -77,6 +80,32 @@ export interface ContentItem {
   marks?: number; // For quizzes
   questions?: number; // For quizzes
   quizData?: QuizQuestion[]; // Added to store actual questions
+}
+
+export interface Program {
+  id: string;
+  name: string;
+}
+
+export interface ClassLevel {
+  id: string;
+  name: string;
+  programId: string;
+}
+
+export interface Stream {
+  id: string;
+  name: string;
+  classLevelId: string;
+}
+
+export interface MasterSubject {
+  id: string;
+  name: string;
+  icon: string;
+  streamId?: string; // Optional: linked to Stream
+  classLevelId?: string; // Optional: linked directly to Class if no stream
+  programId?: string; // Optional: linked to Program (e.g. general subjects)
 }
 
 export interface Announcement {
