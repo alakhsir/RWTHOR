@@ -13,11 +13,13 @@ const iconMap: Record<string, any> = {
 export const BatchDetails = () => {
   const { batchId } = useParams();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'description' | 'classes'>('classes');
+  const [activeTab, setActiveTab] = useState<'description' | 'classes'>('description');
 
   const [batch, setBatch] = useState<Batch | undefined>(undefined);
   const [batchSubjects, setBatchSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [enrollLoading, setEnrollLoading] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -28,8 +30,12 @@ export const BatchDetails = () => {
         setBatch(batchData);
 
         if (batchData) {
-          const subjectsData = await api.getSubjects(batchId);
+          const [subjectsData, enrolledIds] = await Promise.all([
+            api.getSubjects(batchId),
+            api.getEnrolledBatchIds()
+          ]);
           setBatchSubjects(subjectsData);
+          setIsEnrolled(enrolledIds.includes(batchId));
         }
       } catch (error) {
         console.error(error);
@@ -39,6 +45,21 @@ export const BatchDetails = () => {
     };
     loadData();
   }, [batchId]);
+
+  const handleEnroll = async () => {
+    if (!batch) return;
+    try {
+      setEnrollLoading(true);
+      await api.enrollBatch(batch.id);
+      setIsEnrolled(true);
+      alert("Successfully enrolled!");
+    } catch (error) {
+      console.error("Enrollment failed", error);
+      alert("Failed to enroll. Please try again.");
+    } finally {
+      setEnrollLoading(false);
+    }
+  };
 
   if (loading) {
     return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" size={40} /></div>;
@@ -100,6 +121,7 @@ export const BatchDetails = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {batchSubjects.map(subject => {
                   const isUrl = subject.icon?.startsWith('http');
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const Icon = !isUrl ? (iconMap[subject.icon] || Book) : null;
 
                   return (
@@ -112,6 +134,7 @@ export const BatchDetails = () => {
                         {isUrl ? (
                           <img src={subject.icon} alt={subject.name} className="w-full h-full object-contain" />
                         ) : (
+                          // @ts-ignore
                           <Icon size={32} />
                         )}
                       </div>
@@ -154,7 +177,8 @@ export const BatchDetails = () => {
 
               {/* Dynamic Features List */}
               <div className="space-y-4">
-                {batch.features.map((feature: any, idx) => (
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {batch.features.map((feature: any, idx: number) => (
                   <div key={idx} className="flex gap-4 items-center">
                     <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center shrink-0">
                       <span className="text-lg">{feature.icon || '⭐'}</span>
@@ -195,13 +219,33 @@ export const BatchDetails = () => {
 
                   {/* Buttons */}
                   <div className="space-y-3">
-                    <button className="w-full bg-[#1e293b] hover:bg-[#334155] text-white/90 text-sm font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 border border-blue-500/30">
-                      <span className="text-blue-400">🎯</span> Enroll Now, To Ease Access
-                    </button>
+                    {isEnrolled ? (
+                      <button
+                        onClick={() => setActiveTab('classes')}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                      >
+                        <span className="text-xl">✅</span> Start Studying
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={handleEnroll}
+                          disabled={enrollLoading}
+                          className="w-full bg-[#1e293b] hover:bg-[#334155] text-white/90 text-sm font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 border border-blue-500/30"
+                        >
+                          {enrollLoading ? <Loader2 className="animate-spin" /> : <span className="text-blue-400">🎯</span>}
+                          Enroll Now, To Ease Access
+                        </button>
 
-                    <button className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2">
-                      ENROLL NOW <span className="text-lg">🏷️</span>
-                    </button>
+                        <button
+                          onClick={handleEnroll}
+                          disabled={enrollLoading}
+                          className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                        >
+                          {enrollLoading ? <Loader2 className="animate-spin text-black" /> : <>ENROLL NOW <span className="text-lg">🏷️</span></>}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

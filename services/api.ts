@@ -77,9 +77,21 @@ export const api = {
 
   // --- BATCHES ---
   getBatches: async (): Promise<Batch[]> => {
-    const { data, error } = await supabase.from('batches').select('*');
-    if (error) { console.error('Error fetching batches:', error); return []; }
-    return data.map(mapBatch);
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Batches fetch timed out')), 5000)
+      );
+
+      const fetchPromise = supabase.from('batches').select('*');
+
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
+
+      if (error) { console.error('Error fetching batches:', error); return []; }
+      return data.map(mapBatch);
+    } catch (err) {
+      console.error('Error or timeout fetching batches:', err);
+      return [];
+    }
   },
 
   getBatchById: async (id: string): Promise<Batch | undefined> => {
@@ -161,6 +173,53 @@ export const api = {
 
   deleteBatch: async (id: string) => {
     const { error } = await supabase.from('batches').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  deleteBatch: async (id: string) => {
+    const { error } = await supabase.from('batches').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // --- ENROLLMENTS ---
+  getEnrolledBatchIds: async (): Promise<string[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from('enrollments')
+      .select('batch_id')
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Error fetching enrollments:', error);
+      return [];
+    }
+    return data.map((item: any) => item.batch_id);
+  },
+
+  enrollBatch: async (batchId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not logged in');
+
+    // Use upsert to handle cases where enrollment already exists (idempotent)
+    const { error } = await supabase
+      .from('enrollments')
+      .upsert([{ user_id: user.id, batch_id: batchId }], { onConflict: 'user_id, batch_id' });
+
+    if (error) throw error;
+  },
+
+  unenrollBatch: async (batchId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not logged in');
+
+    const { error } = await supabase
+      .from('enrollments')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('batch_id', batchId);
+
     if (error) throw error;
   },
 

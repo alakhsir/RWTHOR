@@ -12,10 +12,14 @@ export const Study = () => {
   useEffect(() => {
     const fetchBatch = async () => {
       try {
-        const batches = await api.getBatches();
-        // Priority to last valid batch or just first one enrolled
-        const enrolled = batches.find(b => b.enrolled || b.isFree);
-        setActiveBatch(enrolled);
+        const [batches, enrolledIds] = await Promise.all([
+          api.getBatches(),
+          api.getEnrolledBatchIds()
+        ]);
+
+        // Find the first batch user is enrolled in
+        const enrolledBatch = batches.find(b => enrolledIds.includes(b.id)); // || b.isFree);
+        setActiveBatch(enrolledBatch);
       } catch (e) {
         console.error(e);
       } finally {

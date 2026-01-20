@@ -10,8 +10,10 @@ import {
 import { api } from '../services/api';
 import { ContentType, ContentItem, Chapter } from '../types';
 import { VideoPlayer } from '../components/VideoPlayer';
+import { usePlayer } from '../contexts/PlayerContext';
 
 export const ChapterView = () => {
+  const { playVideo } = usePlayer();
   const { batchId, subjectId, chapterId } = useParams();
   const [activeTab, setActiveTab] = useState<'Lectures' | 'Notes' | 'DPP Quiz' | 'DPP PDF' | 'DPP Video'>('Lectures');
 
@@ -169,10 +171,14 @@ export const ChapterView = () => {
   };
 
   // --- RENDER VIDEO PLAYER (Unified) ---
+  // Note: Using Global Player now.
+  // But for Drive links (iframe), we might still want local handling or move it to context.
+  // For now, let's keep Drive links local as they are iframes, but use context for Videos.
+
   if (activeVideo) {
     const isDrive = activeVideo.url?.includes('drive.google.com') || activeVideo.url?.includes('docs.google.com');
 
-    // For Drive links, we still use iframe. For MP4/WebM/Others we use new VideoPlayer
+    // For Drive links, we still use iframe locally
     if (isDrive) {
       return (
         <div className="fixed inset-0 bg-black z-50 flex flex-col animate-in fade-in duration-300">
@@ -192,14 +198,9 @@ export const ChapterView = () => {
       )
     }
 
-    return (
-      <VideoPlayer
-        url={activeVideo.url}
-        title={activeVideo.title}
-        thumbnailUrl={activeVideo.thumbnailUrl}
-        onClose={() => setActiveVideo(null)}
-      />
-    );
+    // For standard videos using VideoPlayer, we don't render them here anymore.
+    // They are handled by handleVideoSelect which calls context.
+    return null;
   }
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" size={40} /></div>;
@@ -519,7 +520,18 @@ export const ChapterView = () => {
               key={item.id}
               className={`bg-transparent border rounded-xl overflow-hidden group transition-all flex flex-col h-full shadow-lg cursor-pointer ${item.type === ContentType.QUIZ ? 'border-green-900/40 hover:border-green-500' : 'border-border hover:border-gray-500'}`}
               onClick={() => {
-                if (item.type === ContentType.VIDEO || item.type === ContentType.DPP_VIDEO) setActiveVideo(item);
+                if (item.type === ContentType.VIDEO || item.type === ContentType.DPP_VIDEO) {
+                  const isDrive = item.url?.includes('drive.google.com') || item.url?.includes('docs.google.com');
+                  if (isDrive) {
+                    setActiveVideo(item);
+                  } else {
+                    playVideo({
+                      url: item.url,
+                      title: item.title,
+                      thumbnailUrl: item.thumbnailUrl
+                    });
+                  }
+                }
               }}
             >
               {/* Video Card */}

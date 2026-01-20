@@ -1,31 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, User, Ban, GraduationCap, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { api } from '../services/api';
 import { Batch } from '../types';
 import { BatchCard } from '../components/BatchCard';
+import { useAuth } from '../contexts/AuthContext';
 
 export const MyBatches = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [myBatches, setMyBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchBatches = async () => {
-      try {
-        const allBatches = await api.getBatches();
-        // In a real app, we'd filter by enrolled or fetch /my-batches
-        // For now, let's assume all fetched batches are available or filter if 'enrolled' property exists
-        const enrolled = allBatches.filter(b => b.enrolled || b.isFree); // Assuming free batches are auto-enrolled or similar logic
-        setMyBatches(enrolled);
-      } catch (error) {
-        console.error("Failed to load batches", error);
-      } finally {
+  const fetchBatches = async () => {
+    try {
+      if (!user) {
         setLoading(false);
+        return;
       }
-    };
+      setLoading(true);
+      // Fetch all batches and enrolled ids
+      const [allBatches, enrolledIds] = await Promise.all([
+        api.getBatches(),
+        api.getEnrolledBatchIds()
+      ]);
+
+      const enrolled = allBatches.filter(b => enrolledIds.includes(b.id));
+      setMyBatches(enrolled);
+    } catch (error) {
+      console.error("Failed to load batches", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchBatches();
-  }, []);
+  }, [user]);
+
+  const handleEnrollChange = async () => {
+    // Refresh list to remove unenrolled
+    fetchBatches();
+  };
 
   if (loading) {
     return (
@@ -43,13 +59,23 @@ export const MyBatches = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {myBatches.map(batch => (
             <div key={batch.id} className="h-full">
-              <BatchCard batch={batch} />
+              <BatchCard
+                batch={batch}
+                isEnrolled={true}
+                onEnrollChange={handleEnrollChange}
+              />
             </div>
           ))}
         </div>
       ) : (
-        <div className="text-center py-20 text-gray-500">
-          No batches enrolled. Go to "Batches" to enroll.
+        <div className="text-center py-20 text-gray-500 bg-gray-900/50 rounded-2xl border border-dashed border-gray-800">
+          <p className="mb-4">No batches enrolled yet.</p>
+          <button
+            onClick={() => navigate('/explore')}
+            className="text-indigo-400 hover:text-indigo-300 underline font-medium"
+          >
+            Go to Explore Batches to enroll
+          </button>
         </div>
       )}
     </div>

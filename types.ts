@@ -114,3 +114,16 @@ export interface Announcement {
   date: string;
   batchId: string;
 }
+
+export interface Profile {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  role: 'student' | 'admin' | 'teacher';
+  class: string | null;
+  batch_id: string | null;
+  subscription_status: 'free' | 'paid';
+  subscription_expiry: string | null;
+  is_active: boolean;
+  created_at: string;
+}

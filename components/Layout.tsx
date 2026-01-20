@@ -16,7 +16,8 @@ import {
   Star,
   ShieldAlert,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  Compass
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -29,6 +30,7 @@ const Sidebar = ({ isOpen, closeMobile, collapsed, toggleCollapsed }: { isOpen: 
 
   const menuItems = [
     { icon: BookOpen, label: 'Study', path: '/' },
+    { icon: Compass, label: 'Explore Batches', path: '/explore' },
     { icon: Layers, label: 'My Batches', path: '/my-batches' },
     { icon: Send, label: 'Join Telegram', path: '/telegram' },
     { icon: Heart, label: 'Donate Batch', path: '/donate' },
@@ -93,17 +95,22 @@ const Sidebar = ({ isOpen, closeMobile, collapsed, toggleCollapsed }: { isOpen: 
   );
 };
 
+import { useAuth } from '../contexts/AuthContext';
+
 const Header = ({ toggleSidebar, collapsed }: { toggleSidebar: () => void, collapsed: boolean }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isHome = location.pathname === '/';
 
-  // User State
-  const [user, setUser] = useState({ name: 'User', avatar: 'U', xp: 0 });
+  const { profile, signOut, user } = useAuth();
 
-  React.useEffect(() => {
-    api.getUserProfile().then(setUser);
-  }, []);
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
+
+  const displayName = profile?.full_name || user?.phone || 'User';
+  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <header className={`h-16 bg-background border-b border-border flex items-center justify-between px-4 lg:px-8 fixed top-0 right-0 z-30 transition-all duration-300 left-0 ${collapsed ? 'lg:left-20' : 'lg:left-64'}`}>
@@ -125,16 +132,54 @@ const Header = ({ toggleSidebar, collapsed }: { toggleSidebar: () => void, colla
 
       <div className="flex items-center gap-4">
         {/* User Profile */}
-        <div className="flex items-center gap-3 pl-4 border-l border-border">
-          <div className="text-right hidden md:block">
-            <p className="text-sm text-foreground font-medium">Hi, {user.name}</p>
-          </div>
-          <div className="w-9 h-9 bg-muted rounded-full flex items-center justify-center text-xs font-bold text-foreground overflow-hidden">
-            {user.avatar.length > 2 ? <img src={user.avatar} alt="avatar" className="w-full h-full object-cover" /> : user.avatar}
-          </div>
+        <div className="flex items-center gap-4 pl-4 border-l border-border">
+          <button
+            onClick={() => navigate('/profile')}
+            className="group flex items-center gap-3 text-left hover:bg-white/5 p-2 rounded-xl transition-all"
+          >
+            <div className="hidden md:block">
+              <p className="text-sm text-foreground font-medium group-hover:text-indigo-400 transition-colors">{displayName}</p>
+              <p className="text-xs text-muted-foreground">{profile?.role || 'student'}</p>
+            </div>
+            <div className="w-9 h-9 bg-muted rounded-full flex items-center justify-center text-xs font-bold text-foreground overflow-hidden border border-border group-hover:border-indigo-500/50 transition-colors">
+              {initial}
+            </div>
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="p-2 text-muted-foreground hover:text-red-500 transition-colors"
+            title="Logout"
+          >
+            <LogOut size={20} />
+          </button>
         </div>
       </div>
     </header>
+  );
+};
+
+import { usePlayer } from '../contexts/PlayerContext';
+import { VideoPlayer } from './VideoPlayer';
+
+import { createPortal } from 'react-dom';
+
+const GlobalPlayer = () => {
+  const { activeVideo, isMinimized, closeVideo, minimizeVideo, maximizeVideo } = usePlayer();
+
+  if (!activeVideo) return null;
+
+  return createPortal(
+    <VideoPlayer
+      url={activeVideo.url}
+      title={activeVideo.title}
+      thumbnailUrl={activeVideo.thumbnailUrl}
+      onClose={closeVideo}
+      isMinimized={isMinimized}
+      onMinimize={minimizeVideo}
+      onMaximize={maximizeVideo}
+    />,
+    document.body
   );
 };
 
@@ -160,6 +205,9 @@ export const Layout = ({ children }: LayoutProps) => {
           {children}
         </div>
       </main>
+
+      {/* Global Video Player */}
+      <GlobalPlayer />
     </div>
   );
 };

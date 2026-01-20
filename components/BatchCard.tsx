@@ -1,14 +1,49 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, GraduationCap, Clock, Award, CheckCircle2, User, Ban } from 'lucide-react';
 import { Batch } from '../types';
+import { api } from '../services/api';
 
 interface BatchCardProps {
     batch: Batch;
+    isEnrolled?: boolean;
+    onEnrollChange?: () => void;
 }
 
-export const BatchCard: React.FC<BatchCardProps> = ({ batch }) => {
+export const BatchCard: React.FC<BatchCardProps> = ({ batch, isEnrolled = false, onEnrollChange }) => {
     const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
+
+    const handleEnroll = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        try {
+            setLoading(true);
+            await api.enrollBatch(batch.id);
+            if (onEnrollChange) onEnrollChange();
+            // navigate('/my-batches'); // Optional: redirect after enroll
+        } catch (error) {
+            console.error("Enrollment failed", error);
+            alert("Failed to enroll. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUnenroll = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm("Are you sure you want to leave this batch?")) return;
+
+        try {
+            setLoading(true);
+            await api.unenrollBatch(batch.id);
+            if (onEnrollChange) onEnrollChange();
+        } catch (error) {
+            console.error("Unenrollment failed", error);
+            alert("Failed to unenroll.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="group relative bg-[#13151b] border border-white/10 rounded-2xl overflow-hidden hover:border-gray-700 transition-all duration-300 flex flex-col h-full font-sans">
@@ -16,9 +51,15 @@ export const BatchCard: React.FC<BatchCardProps> = ({ batch }) => {
             {/* 1. Header Section */}
             <div className="px-5 py-4 flex justify-between items-start">
                 <h3 className="font-bold text-xl text-white leading-tight">{batch.title}</h3>
-                <span className="bg-[#fbbf24] text-black text-[11px] font-bold px-2 py-0.5 rounded-[4px] uppercase tracking-wide">
-                    New
-                </span>
+                {isEnrolled ? (
+                    <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[11px] font-bold px-2 py-0.5 rounded-[4px] uppercase tracking-wide flex items-center gap-1">
+                        <CheckCircle2 size={10} /> Enrolled
+                    </span>
+                ) : (
+                    <span className="bg-[#fbbf24] text-black text-[11px] font-bold px-2 py-0.5 rounded-[4px] uppercase tracking-wide">
+                        New
+                    </span>
+                )}
             </div>
 
             {/* 2. Banner Section */}
@@ -72,20 +113,34 @@ export const BatchCard: React.FC<BatchCardProps> = ({ batch }) => {
 
                     {/* Action Buttons */}
                     <div className="grid grid-cols-2 gap-3">
-                        <button
-                            onClick={() => navigate(`/batch/${batch.id}`)}
-                            className="bg-[#1e2026] hover:bg-[#2a2c33] border border-white/10 text-white font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors"
-                        >
-                            <GraduationCap size={20} />
-                            Study
-                        </button>
-                        <button
-                            className="bg-[#dc2626] hover:bg-[#b91c1c] text-white font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
-                            onClick={(e) => { e.stopPropagation(); alert('Unenroll feature coming soon'); }}
-                        >
-                            <Ban size={18} />
-                            Unenroll
-                        </button>
+                        {isEnrolled ? (
+                            <>
+                                <button
+                                    onClick={() => navigate(`/batch/${batch.id}`)}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                                >
+                                    <GraduationCap size={20} />
+                                    Study
+                                </button>
+                                <button
+                                    className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
+                                    onClick={handleUnenroll}
+                                    disabled={loading}
+                                >
+                                    {loading ? <Clock size={18} className="animate-spin" /> : <Ban size={18} />}
+                                    Unenroll
+                                </button>
+                            </>
+                        ) : (
+                            <button
+                                onClick={handleEnroll}
+                                disabled={loading}
+                                className="col-span-2 bg-[#22c55e] hover:bg-[#16a34a] text-black font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                            >
+                                {loading ? <Clock size={20} className="animate-spin" /> : <Award size={20} />}
+                                Enroll Now
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
