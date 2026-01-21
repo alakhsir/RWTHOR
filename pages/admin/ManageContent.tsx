@@ -237,6 +237,13 @@ export const ManageContent = () => {
 
     const handleAddContent = async () => {
         if (!showAddContent || !contentForm.title) return;
+
+        const targetChapterId = activeChapter || editingContent?.chapterId;
+        if (!targetChapterId) {
+            alert("Please select a chapter before saving content.");
+            return;
+        }
+
         setActionLoading(true);
         try {
             // Helper to sanitize numeric inputs
@@ -246,25 +253,37 @@ export const ManageContent = () => {
                 return isNaN(num) ? undefined : num;
             };
 
+            // Check for unsaved question input
+            let finalQuizQuestions = [...quizBuilderQuestions];
+            if (showAddContent === ContentType.QUIZ && currentQuestionText.trim() !== '') {
+                const confirmAdd = window.confirm("You have entered a question but haven't added it to the list. Do you want to include it in the quiz?");
+                if (confirmAdd) {
+                    try {
+                        const newQ = createQuestionFromForm();
+                        if (newQ) {
+                            finalQuizQuestions.push(newQ);
+                        }
+                    } catch (e: any) {
+                        alert("Could not add the current question: " + e.message);
+                        setActionLoading(false);
+                        return; // Abort save to let user fix it
+                    }
+                }
+            }
+
             const payload: any = {
                 title: contentForm.title,
                 type: showAddContent,
-                chapterId: activeChapter!,
+                chapterId: targetChapterId,
                 url: contentForm.url || undefined,
                 thumbnailUrl: contentForm.thumbnail || undefined,
                 duration: contentForm.duration || undefined,
                 teacher: contentForm.teacher || undefined,
                 marks: toInt(contentForm.marks),
-                // For Quiz, prefer calculated length if no manual override, else safely parse input
                 questions: showAddContent === ContentType.QUIZ
-                    ? (quizBuilderQuestions.length > 0 ? quizBuilderQuestions.length : toInt(contentForm.questions))
+                    ? (finalQuizQuestions.length > 0 ? finalQuizQuestions.length : toInt(contentForm.questions))
                     : toInt(contentForm.questions),
-                quizData: showAddContent === ContentType.QUIZ ? quizBuilderQuestions : undefined,
-                // Time limit might be needed for quiz too, assuming it goes into duration or a specific field? 
-                // Based on previous code, timeLimit was in form but seemingly unused in createContent directly or mapped to something else?
-                // Checking previous code: only 'marks' and 'questions' were explicitly mapped. 
-                // If 'timeLimit' is intended for 'duration', let's map it if type is quiz.
-                // However, the interface has 'duration' field. Let's assume timeLimit maps to duration for Quizzes if duration is empty.
+                quizData: showAddContent === ContentType.QUIZ ? finalQuizQuestions : undefined,
             };
 
             if (showAddContent === ContentType.QUIZ && contentForm.timeLimit) {
@@ -342,36 +361,54 @@ export const ManageContent = () => {
         setCurrentOptions(newOptions);
     };
 
-    const addQuestionToQuiz = () => {
-        if (!currentQuestionText || currentOptions.some(opt => !opt)) {
-            alert("Please fill all fields");
-            return;
+    const createQuestionFromForm = (): QuizQuestion => {
+        // Filter out empty options
+        const validOptions = currentOptions.filter(opt => opt.trim() !== '');
+
+        if (!currentQuestionText || validOptions.length < 2) {
+            throw new Error("Please provide the question text and at least 2 valid options.");
         }
 
-        const newQuestion: QuizQuestion = {
+        // Adjust correctOptionIndex
+        const selectedOptionContent = currentOptions[correctOptionIndex];
+        if (!selectedOptionContent || !selectedOptionContent.trim()) {
+            throw new Error("Please select a valid (non-empty) correct option.");
+        }
+
+        const newCorrectIndex = validOptions.indexOf(selectedOptionContent);
+
+        return {
             id: editingQuestionIndex !== null ? quizBuilderQuestions[editingQuestionIndex].id : Date.now().toString(),
             text: currentQuestionText,
-            options: currentOptions,
-            correctOptionIndex: correctOptionIndex,
+            options: validOptions,
+            correctOptionIndex: newCorrectIndex,
             imageUrl: currentQuestionImage
         };
+    };
 
-        if (editingQuestionIndex !== null) {
-            // Update existing
-            const updated = [...quizBuilderQuestions];
-            updated[editingQuestionIndex] = newQuestion;
-            setQuizBuilderQuestions(updated);
-            setEditingQuestionIndex(null);
-        } else {
-            // Add new
-            setQuizBuilderQuestions([...quizBuilderQuestions, newQuestion]);
+    const addQuestionToQuiz = () => {
+        try {
+            const newQuestion = createQuestionFromForm();
+
+            if (editingQuestionIndex !== null) {
+                // Update existing
+                const updated = [...quizBuilderQuestions];
+                updated[editingQuestionIndex] = newQuestion;
+                setQuizBuilderQuestions(updated);
+                setEditingQuestionIndex(null);
+            } else {
+                // Add new
+                setQuizBuilderQuestions([...quizBuilderQuestions, newQuestion]);
+            }
+
+            // Reset form
+            setCurrentQuestionText('');
+            setCurrentOptions(['', '', '', '']);
+            setCorrectOptionIndex(0);
+            setCurrentQuestionImage('');
+        } catch (e: any) {
+            alert(e.message);
         }
-
-        // Reset form
-        setCurrentQuestionText('');
-        setCurrentOptions(['', '', '', '']);
-        setCorrectOptionIndex(0);
-        setCurrentQuestionImage('');
     };
 
     const handleJsonImport = () => {

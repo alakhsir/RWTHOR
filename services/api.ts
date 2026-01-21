@@ -336,6 +336,7 @@ export const api = {
   },
 
   createContent: async (contentData: any) => {
+    console.log("DEBUG: API createContent received:", contentData);
     const { data, error } = await supabase.from('content').insert([{
       title: contentData.title,
       type: contentData.type,
@@ -354,6 +355,7 @@ export const api = {
   },
 
   updateContent: async (contentId: string, contentData: any) => {
+    console.log("DEBUG: API updateContent received:", contentData);
     const { data, error } = await supabase.from('content').update({
       title: contentData.title,
       url: contentData.url,

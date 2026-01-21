@@ -108,6 +108,11 @@ export const ChapterView = () => {
 
 
   const handleStartQuiz = (item: ContentItem) => {
+    const questions = item.quizData || [];
+    if (questions.length === 0) {
+      alert("This quiz has no questions available yet.");
+      return;
+    }
     setActiveQuiz(item);
     setCurrentQuestionIndex(0);
     setSelectedAnswers({});
@@ -115,8 +120,11 @@ export const ChapterView = () => {
     setQuizSubmitted(false);
     let durationSeconds = 45 * 60;
     if (item.duration) {
-      const match = item.duration.match(/(\d+)m/);
-      if (match) durationSeconds = parseInt(match[1]) * 60;
+      // Match numbers at the start of the string or before 'm'/'min'
+      const match = item.duration.match(/(\d+)\s*(m|min|mins)?/i);
+      if (match) {
+        durationSeconds = parseInt(match[1]) * 60;
+      }
     }
     setTimeLeft(durationSeconds);
   };
@@ -162,13 +170,20 @@ export const ChapterView = () => {
   };
 
   const calculateScore = () => {
-    if (!activeQuiz?.quizData) return 0;
+    if (!activeQuiz?.quizData || activeQuiz.quizData.length === 0) return 0;
+
+    // Dynamic Scoring
+    const totalQuestions = activeQuiz.quizData.length;
+    const totalMarks = activeQuiz.marks || (totalQuestions * 4); // Default to 4 marks per q if not set
+    const positiveMark = totalMarks / totalQuestions;
+    const negativeMark = 0; // Keeping it safe (or activeQuiz.negativeMarks if we had it)
+
     let score = 0;
     activeQuiz.quizData.forEach((q, idx) => {
-      if (selectedAnswers[idx] === q.correctOptionIndex) score += 4;
-      else if (selectedAnswers[idx] !== undefined) score -= 1;
+      if (selectedAnswers[idx] === q.correctOptionIndex) score += positiveMark;
+      else if (selectedAnswers[idx] !== undefined) score -= negativeMark;
     });
-    return score;
+    return Math.round(score * 10) / 10; // Round to 1 decimal
   };
 
   // --- RENDER VIDEO PLAYER (Unified) ---
@@ -248,8 +263,15 @@ export const ChapterView = () => {
   // --- RENDER QUIZ RESULT & PLAYER ---
   if (activeQuiz) {
     const questions = activeQuiz.quizData || [];
+    if (questions.length === 0) return null;
+
     const currentQ = questions[currentQuestionIndex];
     const totalQ = questions.length;
+
+    // Dynamic Scoring
+    const totalMarks = activeQuiz.marks || (totalQ * 4);
+    const positiveMark = parseFloat((totalMarks / totalQ).toFixed(2));
+    const negativeMark = 0;
 
     if (quizSubmitted) {
       const attemptedCount = Object.keys(selectedAnswers).length;
@@ -300,34 +322,34 @@ export const ChapterView = () => {
     // Quiz Player
     return (
       <div className="fixed inset-0 bg-[#0d0f12] z-50 flex flex-col font-sans">
-        <div className="h-16 border-b border-[#27292e] flex items-center justify-between px-4 lg:px-6 bg-[#0d0f12] shrink-0 z-20">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setActiveQuiz(null)} className="p-2 hover:bg-white/10 rounded-full text-white"><X size={24} /></button>
-            <h2 className="font-bold text-sm lg:text-lg text-white uppercase tracking-wide truncate max-w-[200px] lg:max-w-md">{activeQuiz.title}</h2>
-          </div>
+        <div className="h-14 lg:h-16 border-b border-[#27292e] flex items-center justify-between px-3 lg:px-6 bg-[#0d0f12] shrink-0 z-20">
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 bg-[#1f2937] px-3 py-1.5 rounded text-white border border-gray-700">
-              <Clock size={16} className={`${timeLeft < 300 ? 'text-red-500 animate-pulse' : 'text-gray-400'}`} />
-              <span className={`font-mono font-bold ${timeLeft < 300 ? 'text-red-500' : ''}`}>{formatTime(timeLeft)}</span>
+            <button onClick={() => setActiveQuiz(null)} className="p-1.5 lg:p-2 hover:bg-white/10 rounded-full text-white"><X size={20} className="lg:w-6 lg:h-6" /></button>
+            <h2 className="font-bold text-xs lg:text-lg text-white uppercase tracking-wide truncate max-w-[100px] sm:max-w-[200px] lg:max-w-md">{activeQuiz.title}</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-[#1f2937] px-2 py-1 lg:px-3 lg:py-1.5 rounded text-white border border-gray-700">
+              <Clock size={14} className={`lg:w-4 lg:h-4 ${timeLeft < 300 ? 'text-red-500 animate-pulse' : 'text-gray-400'}`} />
+              <span className={`font-mono font-bold text-xs lg:text-sm ${timeLeft < 300 ? 'text-red-500' : ''}`}>{formatTime(timeLeft)}</span>
             </div>
-            <button className="lg:hidden p-2 text-white hover:bg-white/10 rounded" onClick={() => setIsSidebarOpen(!isSidebarOpen)}><Menu size={24} /></button>
-            <button onClick={() => setQuizSubmitted(true)} className="bg-[#ef4444] hover:bg-[#dc2626] text-white px-4 lg:px-6 py-2 rounded font-bold text-xs lg:text-sm uppercase tracking-wider shadow-lg shadow-red-900/20">Submit Test</button>
+            <button className="lg:hidden p-1.5 text-white hover:bg-white/10 rounded" onClick={() => setIsSidebarOpen(!isSidebarOpen)}><Menu size={20} /></button>
+            <button onClick={() => setQuizSubmitted(true)} className="bg-[#ef4444] hover:bg-[#dc2626] text-white px-3 py-1.5 lg:px-6 lg:py-2 rounded font-bold text-[10px] lg:text-sm uppercase tracking-wider shadow-lg shadow-red-900/20 whitespace-nowrap">Submit</button>
           </div>
         </div>
         <div className="flex flex-1 overflow-hidden relative">
           <div className="flex-1 flex flex-col h-full relative z-10">
-            <div className="flex justify-between items-center px-4 lg:px-8 py-4 shrink-0">
-              <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg">QUESTION {currentQuestionIndex + 1} OF {totalQ}</div>
-              <div className="bg-[#1f2937] border border-gray-700 rounded-full px-3 py-1 text-[10px] font-bold tracking-wider flex gap-2"><span className="text-green-400">+4 CORRECT</span><span className="text-gray-600">|</span><span className="text-red-400">-1 WRONG</span></div>
+            <div className="flex justify-between items-center px-3 py-3 shrink-0 gap-2">
+              <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg">Q {currentQuestionIndex + 1}/{totalQ}</div>
+              <div className="bg-[#1f2937] border border-gray-700 rounded-full px-2 py-1 text-[10px] font-bold tracking-wider flex gap-2"><span className="text-green-400">+{positiveMark}</span><span className="text-gray-600">|</span><span className="text-red-400">-{negativeMark}</span></div>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 lg:px-8 pb-24 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto px-3 lg:px-8 pb-20 custom-scrollbar">
               <div className="max-w-4xl mx-auto w-full">
-                <div className="bg-white text-black rounded-xl p-6 lg:p-10 shadow-xl min-h-[400px] flex flex-col">
-                  <div className="text-lg lg:text-xl font-serif font-medium leading-relaxed mb-6"><span dangerouslySetInnerHTML={formatText(currentQ.text)} /></div>
-                  {currentQ.imageUrl && (<div className="mb-8 flex justify-center"><img src={currentQ.imageUrl} alt="Question" className="max-h-60 lg:max-h-80 w-auto object-contain border border-gray-200 rounded" /></div>)}
-                  <div className="space-y-3 mt-auto pt-6">
+                <div className="bg-white text-black rounded-xl p-4 lg:p-10 shadow-xl min-h-[50vh] flex flex-col mt-2">
+                  <div className="text-base lg:text-xl font-sans font-medium leading-relaxed mb-4 lg:mb-6"><span dangerouslySetInnerHTML={formatText(currentQ.text)} /></div>
+                  {currentQ.imageUrl && (<div className="mb-6 flex justify-center"><img src={currentQ.imageUrl} alt="Question" className="max-h-48 lg:max-h-80 w-auto object-contain border border-gray-200 rounded" /></div>)}
+                  <div className="space-y-3 mt-auto pt-4">
                     {currentQ.options.map((opt, idx) => (
-                      <button key={idx} onClick={() => handleOptionSelect(idx)} className={`w-full text-left p-4 rounded-lg border-2 transition-all flex items-start gap-4 hover:bg-gray-50 ${selectedAnswers[currentQuestionIndex] === idx ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200'}`}>
+                      <button key={idx} onClick={() => handleOptionSelect(idx)} className={`w-full text-left p-3 lg:p-4 rounded-lg border-2 transition-all flex items-center gap-3 lg:gap-4 hover:bg-gray-50 ${selectedAnswers[currentQuestionIndex] === idx ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200'}`}>
                         <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${selectedAnswers[currentQuestionIndex] === idx ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-400 text-gray-500'}`}>{idx + 1}</div>
                         <span className="text-base font-medium text-gray-800" dangerouslySetInnerHTML={formatText(opt)} />
                       </button>
@@ -336,14 +358,14 @@ export const ChapterView = () => {
                 </div>
               </div>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 h-20 bg-[#0d0f12] border-t border-[#27292e] flex items-center justify-between px-4 lg:px-8 z-20">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#1f2937] flex items-center justify-center text-white font-bold border border-gray-700">{selectedAnswers[currentQuestionIndex] !== undefined ? String.fromCharCode(65 + selectedAnswers[currentQuestionIndex]) : '-'}</div>
-                <span className="text-gray-400 text-sm font-bold">{currentQuestionIndex + 1}</span>
+            <div className="absolute bottom-0 left-0 right-0 h-16 bg-[#0d0f12] border-t border-[#27292e] flex items-center justify-between px-3 z-20">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-[#1f2937] flex items-center justify-center text-white font-bold border border-gray-700 text-xs">{selectedAnswers[currentQuestionIndex] !== undefined ? String.fromCharCode(65 + selectedAnswers[currentQuestionIndex]) : '-'}</div>
+                <span className="text-gray-400 text-xs font-bold">{currentQuestionIndex + 1}</span>
               </div>
-              <div className="flex gap-4">
-                <button onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))} disabled={currentQuestionIndex === 0} className="flex items-center gap-2 bg-[#1f2937] hover:bg-[#374151] text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><ChevronLeft size={16} /> PREVIOUS</button>
-                <button onClick={() => setCurrentQuestionIndex(Math.min(totalQ - 1, currentQuestionIndex + 1))} className="flex items-center gap-2 bg-[#5a4bda] hover:bg-[#4c3fb5] text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors shadow-lg shadow-primary/20">{currentQuestionIndex === totalQ - 1 ? 'LAST' : 'NEXT'} <ChevronRight size={16} /></button>
+              <div className="flex gap-2">
+                <button onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))} disabled={currentQuestionIndex === 0} className="flex items-center justify-center gap-1 bg-[#1f2937] hover:bg-[#374151] text-white px-2 py-1.5 rounded-md font-bold text-[10px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 w-16"><ChevronLeft size={10} /> PREV</button>
+                <button onClick={() => setCurrentQuestionIndex(Math.min(totalQ - 1, currentQuestionIndex + 1))} className="flex items-center justify-center gap-1 bg-[#5a4bda] hover:bg-[#4c3fb5] text-white px-2 py-1.5 rounded-md font-bold text-[10px] transition-colors shadow-lg shadow-primary/20 w-16">{currentQuestionIndex === totalQ - 1 ? 'FINISH' : 'NEXT'} <ChevronRight size={10} /></button>
               </div>
             </div>
           </div>
@@ -382,7 +404,7 @@ export const ChapterView = () => {
   }
 
   // --- RENDER QUIZ RESULT & PLAYER ---
-  if (activeQuiz) {
+  if (false && activeQuiz) { // Duplicate block disabled
     const questions = activeQuiz.quizData || [];
     const currentQ = questions[currentQuestionIndex];
     const totalQ = questions.length;
@@ -436,18 +458,21 @@ export const ChapterView = () => {
     // Quiz Player
     return (
       <div className="fixed inset-0 bg-[#0d0f12] z-50 flex flex-col font-sans">
-        <div className="h-16 border-b border-[#27292e] flex items-center justify-between px-4 lg:px-6 bg-[#0d0f12] shrink-0 z-20">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setActiveQuiz(null)} className="p-2 hover:bg-white/10 rounded-full text-white"><X size={24} /></button>
-            <h2 className="font-bold text-sm lg:text-lg text-white uppercase tracking-wide truncate max-w-[200px] lg:max-w-md">{activeQuiz.title}</h2>
+        <div className="h-14 border-b border-[#27292e] flex items-center justify-between px-3 bg-[#0d0f12] shrink-0 z-20">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <button onClick={() => setActiveQuiz(null)} className="p-1.5 hover:bg-white/10 rounded-full text-white shrink-0"><X size={20} /></button>
+            <h2 className="font-bold text-sm text-white uppercase tracking-wide truncate flex-1 min-w-0">{activeQuiz.title}</h2>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
             <div className="hidden sm:flex items-center gap-2 bg-[#1f2937] px-3 py-1.5 rounded text-white border border-gray-700">
               <Clock size={16} className={`${timeLeft < 300 ? 'text-red-500 animate-pulse' : 'text-gray-400'}`} />
               <span className={`font-mono font-bold ${timeLeft < 300 ? 'text-red-500' : ''}`}>{formatTime(timeLeft)}</span>
             </div>
-            <button className="lg:hidden p-2 text-white hover:bg-white/10 rounded" onClick={() => setIsSidebarOpen(!isSidebarOpen)}><Menu size={24} /></button>
-            <button onClick={() => setQuizSubmitted(true)} className="bg-[#ef4444] hover:bg-[#dc2626] text-white px-4 lg:px-6 py-2 rounded font-bold text-xs lg:text-sm uppercase tracking-wider shadow-lg shadow-red-900/20">Submit Test</button>
+            <div className="lg:hidden flex items-center gap-1.5 bg-[#1f2937] px-2 py-1 rounded text-white border border-gray-700">
+              <span className={`font-mono font-bold text-xs ${timeLeft < 300 ? 'text-red-500' : ''}`}>{formatTime(timeLeft)}</span>
+            </div>
+            <button className="lg:hidden p-1.5 text-white hover:bg-white/10 rounded" onClick={() => setIsSidebarOpen(!isSidebarOpen)}><Menu size={20} /></button>
+            <button onClick={() => setQuizSubmitted(true)} className="bg-[#ef4444] hover:bg-[#dc2626] text-white px-3 py-1.5 lg:px-6 lg:py-2 rounded font-bold text-[10px] lg:text-sm uppercase tracking-wider shadow-lg shadow-red-900/20 whitespace-nowrap">Submit</button>
           </div>
         </div>
         <div className="flex flex-1 overflow-hidden relative">
@@ -472,14 +497,13 @@ export const ChapterView = () => {
                 </div>
               </div>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 h-20 bg-[#0d0f12] border-t border-[#27292e] flex items-center justify-between px-4 lg:px-8 z-20">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#1f2937] flex items-center justify-center text-white font-bold border border-gray-700">{selectedAnswers[currentQuestionIndex] !== undefined ? String.fromCharCode(65 + selectedAnswers[currentQuestionIndex]) : '-'}</div>
-                <span className="text-gray-400 text-sm font-bold">{currentQuestionIndex + 1}</span>
+            <div className="absolute bottom-0 left-0 right-0 h-14 md:h-20 bg-[#0d0f12] border-t border-[#27292e] flex items-center justify-between px-3 md:px-8 z-20">
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-[#1f2937] flex items-center justify-center text-white font-bold border border-gray-700 text-xs md:text-sm">{selectedAnswers[currentQuestionIndex] !== undefined ? String.fromCharCode(65 + selectedAnswers[currentQuestionIndex]) : '-'}</div>
               </div>
-              <div className="flex gap-4">
-                <button onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))} disabled={currentQuestionIndex === 0} className="flex items-center gap-2 bg-[#1f2937] hover:bg-[#374151] text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><ChevronLeft size={16} /> PREVIOUS</button>
-                <button onClick={() => setCurrentQuestionIndex(Math.min(totalQ - 1, currentQuestionIndex + 1))} className="flex items-center gap-2 bg-[#5a4bda] hover:bg-[#4c3fb5] text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors shadow-lg shadow-primary/20">{currentQuestionIndex === totalQ - 1 ? 'LAST' : 'NEXT'} <ChevronRight size={16} /></button>
+              <div className="flex gap-2 justify-end md:gap-4">
+                <button onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))} disabled={currentQuestionIndex === 0} className="flex items-center justify-center gap-1 bg-[#1f2937] hover:bg-[#374151] text-white px-2 py-1.5 md:px-6 md:py-3 rounded-md md:rounded-lg font-bold text-[10px] md:text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 w-16 md:w-auto"><ChevronLeft size={10} className="md:inline hidden" /><ChevronLeft size={10} className="md:hidden inline" /> <span className="md:inline hidden">PREVIOUS</span><span className="md:hidden inline">PREV</span></button>
+                <button onClick={() => setCurrentQuestionIndex(Math.min(totalQ - 1, currentQuestionIndex + 1))} className="flex items-center justify-center gap-1 bg-[#5a4bda] hover:bg-[#4c3fb5] text-white px-2 py-1.5 md:px-6 md:py-3 rounded-md md:rounded-lg font-bold text-[10px] md:text-sm transition-colors shadow-lg shadow-primary/20 w-16 md:w-auto">{currentQuestionIndex === totalQ - 1 ? (<><span className="md:inline hidden">FINISH</span><span className="md:hidden inline">FINISH</span></>) : (<><span className="md:inline hidden">NEXT</span><span className="md:hidden inline">NEXT</span></>)} <ChevronRight size={10} className="md:inline hidden" /><ChevronRight size={10} className="md:hidden inline" /></button>
               </div>
             </div>
           </div>

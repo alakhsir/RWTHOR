@@ -48,16 +48,16 @@ const Sidebar = ({ isOpen, closeMobile, collapsed, toggleCollapsed }: { isOpen: 
       )}
 
       <aside className={`
-        fixed top-0 left-0 h-full bg-background border-r border-border z-50 transform transition-all duration-300 ease-in-out
+        fixed top-0 left-0 h-full bg-background/80 backdrop-blur-md border-r border-border z-50 transform transition-all duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         ${collapsed ? 'w-20' : 'w-64'}
       `}>
         <div className={`flex items-center gap-3 h-16 border-b border-border ${collapsed ? 'justify-center px-0' : 'px-6'}`}>
           {/* Logo Mock */}
           <div className="w-8 h-8 bg-white text-black rounded-full flex items-center justify-center font-bold text-lg font-serif flex-shrink-0">
-            P
+            R
           </div>
-          {!collapsed && <span className="font-bold text-lg text-foreground tracking-wide whitespace-nowrap overflow-hidden transition-all duration-300">EDTECH PRO</span>}
+          {!collapsed && <span className="font-bold text-lg text-foreground tracking-wide whitespace-nowrap overflow-hidden transition-all duration-300">RW Thor</span>}
         </div>
 
         <nav className="mt-6 px-3 space-y-2">
@@ -114,7 +114,7 @@ const Header = ({ toggleSidebar, collapsed }: { toggleSidebar: () => void, colla
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
-    <header className={`h-16 bg-background border-b border-border flex items-center justify-between px-4 lg:px-8 fixed top-0 right-0 z-30 transition-all duration-300 left-0 ${collapsed ? 'lg:left-20' : 'lg:left-64'}`}>
+    <header className={`h-16 bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 lg:px-8 fixed top-0 right-0 z-30 transition-all duration-300 left-0 ${collapsed ? 'lg:left-20' : 'lg:left-64'}`}>
       <div className="flex items-center gap-4">
         <button onClick={toggleSidebar} className="lg:hidden text-foreground p-2">
           <Menu size={24} />

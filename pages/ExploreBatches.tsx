@@ -72,8 +72,8 @@ export const ExploreBatches = () => {
     return (
         <div className="space-y-6 animate-fade-in relative z-0">
             {/* Background Decoration */}
-            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl -z-10" />
-            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-60 h-60 bg-purple-500/10 rounded-full blur-3xl -z-10" />
+            <div className="absolute top-0 right-0 -mt-20 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl -z-10" />
+            <div className="absolute bottom-0 left-0 -mb-20 w-60 h-60 bg-purple-500/10 rounded-full blur-3xl -z-10" />
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
