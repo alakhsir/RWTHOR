@@ -10,6 +10,7 @@ import {
 import { api } from '../services/api';
 import { ContentType, ContentItem, Chapter } from '../types';
 import { VideoPlayer } from '../components/VideoPlayer';
+import PDFViewer from '../components/PDFViewer';
 import { usePlayer } from '../contexts/PlayerContext';
 
 export const ChapterView = () => {
@@ -232,21 +233,14 @@ export const ChapterView = () => {
 
 
   // --- RENDER PDF PREVIEW ---
+  // --- RENDER PDF PREVIEW ---
   if (pdfPreviewUrl) {
-    const embedUrl = getEmbedUrl(pdfPreviewUrl);
     return (
       <div className="fixed inset-0 bg-black/95 z-50 flex flex-col animate-in fade-in duration-200">
-        <div className="h-14 border-b border-gray-800 flex items-center justify-between px-4 bg-[#0d0f12]">
-          <h3 className="text-white font-medium truncate">Document Preview</h3>
-          <button onClick={() => setPdfPreviewUrl(null)} className="text-gray-400 hover:text-white p-2 rounded-full transition-colors"><X size={24} /></button>
-        </div>
-        <div className="flex-1 bg-gray-900 flex items-center justify-center p-2">
-          <iframe
-            src={embedUrl}
-            className="w-full h-full rounded bg-white"
-            title="Preview"
-          />
-        </div>
+        <PDFViewer
+          pdfUrl={pdfPreviewUrl}
+          onClose={() => setPdfPreviewUrl(null)}
+        />
       </div>
     );
   }
@@ -584,21 +578,16 @@ export const ChapterView = () => {
                   </div>
                   <div className="pt-4 flex items-center justify-between border-t border-border/50">
                     {/* Preview Button */}
+                    {/* Preview Button */}
                     <button
                       onClick={(e) => { e.stopPropagation(); setPdfPreviewUrl(item.url || ''); }}
-                      className="w-10 h-10 rounded-lg border border-gray-600 flex items-center justify-center text-gray-300 hover:text-white hover:border-gray-500 hover:bg-gray-700 transition-colors"
+                      className="w-full bg-[#1f2937] hover:bg-[#374151] hover:text-white text-gray-300 font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all text-sm border border-gray-700 active:scale-95"
                       title="Preview PDF"
                     >
-                      <FileText size={20} strokeWidth={1.5} />
+                      <FileText size={18} /> Preview
                     </button>
                     {/* Download Button */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); window.open(item.url, '_blank'); }}
-                      className="w-10 h-10 bg-white rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors shadow-lg shadow-white/5"
-                      title="Download PDF"
-                    >
-                      <Download size={20} className="text-black" strokeWidth={2.5} />
-                    </button>
+                    {/* Download Button REMOVED for Security */}
                   </div>
                 </div>
               )}
