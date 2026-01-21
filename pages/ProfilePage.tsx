@@ -33,8 +33,27 @@ export const ProfilePage = () => {
 
     if (authLoading) {
         return (
-            <div className="flex items-center justify-center min-h-[50vh]">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+            <div className="max-w-2xl mx-auto space-y-8 p-6">
+                <div className="h-10 w-48 bg-gray-800 rounded animate-pulse" />
+                <div className="bg-gray-900/50 border border-white/10 rounded-2xl p-8 space-y-8">
+                    <div className="flex items-center gap-6 pb-6 border-b border-gray-800">
+                        <div className="w-20 h-20 bg-gray-800 rounded-2xl animate-pulse" />
+                        <div className="space-y-2">
+                            <div className="h-6 w-32 bg-gray-800 rounded animate-pulse" />
+                            <div className="h-4 w-24 bg-gray-800 rounded animate-pulse" />
+                        </div>
+                    </div>
+                    <div className="grid gap-6 md:grid-cols-2">
+                        <div className="col-span-2 space-y-2">
+                            <div className="h-4 w-20 bg-gray-800 rounded animate-pulse" />
+                            <div className="h-12 w-full bg-gray-800 rounded animate-pulse" />
+                        </div>
+                        <div className="space-y-2">
+                            <div className="h-4 w-20 bg-gray-800 rounded animate-pulse" />
+                            <div className="h-12 w-full bg-gray-800 rounded animate-pulse" />
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     }

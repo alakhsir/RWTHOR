@@ -62,7 +62,46 @@ export const BatchDetails = () => {
   };
 
   if (loading) {
-    return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" size={40} /></div>;
+    return (
+      <div className="space-y-6">
+        {/* Banner Skeleton */}
+        <div className="h-48 w-full bg-gray-800 rounded-t-xl animate-pulse rounded-xl" />
+
+        {/* Tabs Skeleton */}
+        <div className="flex justify-between items-center border-b border-white/10 pb-2">
+          <div className="flex gap-8">
+            <div className="h-8 w-24 bg-gray-800 rounded animate-pulse" />
+            <div className="h-8 w-24 bg-gray-800 rounded animate-pulse" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-8 w-20 bg-gray-800 rounded animate-pulse" />
+            <div className="h-8 w-20 bg-gray-800 rounded animate-pulse" />
+          </div>
+        </div>
+
+        {/* Content Skeleton (Description Style) */}
+        <div className="flex flex-col md:flex-row gap-8">
+          <div className="flex-1 border border-white/10 rounded-xl p-6 space-y-6">
+            <div className="h-6 w-48 bg-gray-800 rounded animate-pulse" />
+            <div className="space-y-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="flex gap-4 items-center">
+                  <div className="w-10 h-10 rounded-full bg-gray-800 animate-pulse" />
+                  <div className="h-4 w-64 bg-gray-800 rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="w-full md:w-[360px] shrink-0">
+            <div className="border border-white/10 rounded-xl p-4 space-y-4 h-96 bg-surface">
+              <div className="h-48 bg-gray-800 rounded animate-pulse" />
+              <div className="h-10 w-full bg-gray-800 rounded animate-pulse" />
+              <div className="h-10 w-full bg-gray-800 rounded animate-pulse" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!batch) return <div>Batch not found</div>;

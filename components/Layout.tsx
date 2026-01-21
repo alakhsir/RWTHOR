@@ -101,6 +101,7 @@ const Header = ({ toggleSidebar, collapsed }: { toggleSidebar: () => void, colla
   const navigate = useNavigate();
   const location = useLocation();
   const isHome = location.pathname === '/';
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const { profile, signOut, user } = useAuth();
 
@@ -131,10 +132,10 @@ const Header = ({ toggleSidebar, collapsed }: { toggleSidebar: () => void, colla
       </div>
 
       <div className="flex items-center gap-4">
-        {/* User Profile */}
-        <div className="flex items-center gap-4 pl-4 border-l border-border">
+        {/* User Profile Dropdown */}
+        <div className="flex items-center gap-4 pl-4 border-l border-border relative">
           <button
-            onClick={() => navigate('/profile')}
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className="group flex items-center gap-3 text-left hover:bg-white/5 p-2 rounded-xl transition-all"
           >
             <div className="hidden md:block">
@@ -146,13 +147,31 @@ const Header = ({ toggleSidebar, collapsed }: { toggleSidebar: () => void, colla
             </div>
           </button>
 
-          <button
-            onClick={handleLogout}
-            className="p-2 text-muted-foreground hover:text-red-500 transition-colors"
-            title="Logout"
-          >
-            <LogOut size={20} />
-          </button>
+          {/* Dropdown Menu */}
+          {isDropdownOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)} />
+              <div className="absolute top-full right-0 mt-2 w-48 bg-[#16161a] border border-border rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                <div className="p-1">
+                  <button
+                    onClick={() => { setIsDropdownOpen(false); navigate('/profile'); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    <UserIcon size={16} />
+                    View Profile
+                  </button>
+                  <div className="h-px bg-white/10 my-1 mx-2" />
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                  >
+                    <LogOut size={16} />
+                    Logout
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>

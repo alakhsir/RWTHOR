@@ -1,0 +1,79 @@
+{
+    "tech_stack": [
+        "TypeScript",
+        "React",
+        "Vite",
+        "TailwindCSS",
+        "Supabase",
+        "React Router"
+    ],
+    "features": [
+        {
+            "name": "Authentication",
+            "description": "User and Admin login functionality, including protected route management and authentication state context.",
+            "files": [
+                "pages/LoginPage.tsx",
+                "pages/admin/AdminLogin.tsx",
+                "contexts/AuthContext.tsx",
+                "components/ProtectedRoute.tsx"
+            ]
+        },
+        {
+            "name": "Batch Management",
+            "description": "Features for users to explore available batches, view their enrolled batches, and see detailed batch information.",
+            "files": [
+                "pages/ExploreBatches.tsx",
+                "pages/MyBatches.tsx",
+                "pages/BatchDetails.tsx",
+                "components/BatchCard.tsx"
+            ]
+        },
+        {
+            "name": "Course Content",
+            "description": "Navigation and display of subjects and chapters within a batch.",
+            "files": [
+                "pages/SubjectView.tsx",
+                "pages/ChapterView.tsx"
+            ]
+        },
+        {
+            "name": "Video Player",
+            "description": "Context and logic for video playback within the application.",
+            "files": [
+                "contexts/PlayerContext.tsx"
+            ]
+        },
+        {
+            "name": "Admin Dashboard",
+            "description": "Administrative interface for creating batches, managing content, and viewing dashboard metrics.",
+            "files": [
+                "pages/admin/AdminDashboard.tsx",
+                "pages/admin/CreateBatch.tsx",
+                "pages/admin/ManageContent.tsx",
+                "components/EditableDropdown.tsx"
+            ]
+        },
+        {
+            "name": "Profile",
+            "description": "User profile viewing and management.",
+            "files": [
+                "pages/ProfilePage.tsx"
+            ]
+        },
+        {
+            "name": "API Services",
+            "description": "Supabase client configuration and API service functions for data fetching.",
+            "files": [
+                "services/api.ts",
+                "services/supabase.ts"
+            ]
+        },
+        {
+            "name": "Routing",
+            "description": "Application routing configuration.",
+            "files": [
+                "App.tsx"
+            ]
+        }
+    ]
+}

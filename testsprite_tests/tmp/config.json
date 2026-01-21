@@ -1,0 +1,16 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "executionArgs": {
+    "projectName": "RW-thor",
+    "projectPath": "c:\\Users\\Zafaruddin\\.gemini\\antigravity\\scratch\\RW-thor",
+    "testIds": [],
+    "additionalInstruction": "Generate Playwright test code for the frontend test plan. Ensure tests handle authentication correctly. For performance tests (TC019), use performance.now() or similar.",
+    "envs": {
+      "API_KEY": "sk-user-tYantZuW4qMZ0gaSogE4OweEqcTBEguoY7nmw7i6Uo4CJgfIyxzQjxkef-8faG1cMOvx-8XFhhBaXFzLEtXKc7kgeCBo2VokL-McnTboaN4quKKuJkmZKZ3n24QXh2IwPhs"
+    }
+  },
+  "proxy": "http://61d3a105-4ef5-4544-b1fc-4c9b39b496d7:lPwJDhggyfrgos1KYq8iQPHU17TfrvC8@tun.testsprite.com:8080"
+}

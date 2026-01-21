@@ -98,8 +98,8 @@ export const ChapterView = () => {
     // Default PDF Viewer for direct links
     // For Bunny.net or direct storage, returning the URL directly works best in modern browsers
     if (url.match(/\.pdf$/i)) {
-      // You can return the URL directly for native browser PDF rendering
-      return url;
+      // Use Google Docs Viewer for reliable mobile & cross-browser PDF preview
+      return `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
     }
     return url;
   };
@@ -203,7 +203,31 @@ export const ChapterView = () => {
     return null;
   }
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" size={40} /></div>;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-8 w-1/3 bg-gray-800 rounded animate-pulse mt-2" />
+        <div className="flex gap-2 overflow-hidden">
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-10 w-24 bg-gray-800 rounded animate-pulse" />)}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <div key={i} className="bg-surface border border-border rounded-xl overflow-hidden h-72 space-y-3 p-0">
+              <div className="h-40 bg-gray-800 animate-pulse w-full" />
+              <div className="p-4 space-y-3">
+                <div className="flex justify-between">
+                  <div className="h-3 w-20 bg-gray-800 rounded animate-pulse" />
+                  <div className="h-3 w-12 bg-gray-800 rounded animate-pulse" />
+                </div>
+                <div className="h-5 w-3/4 bg-gray-800 rounded animate-pulse" />
+                <div className="h-5 w-1/2 bg-gray-800 rounded animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
   if (!chapter) return <div>Chapter not found</div>;
 
 

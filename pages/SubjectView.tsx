@@ -34,7 +34,33 @@ export const SubjectView = () => {
       fetchData();
    }, [subjectId]);
 
-   if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-primary" size={40} /></div>;
+   if (loading) {
+      return (
+         <div className="space-y-6">
+            <div className="h-8 w-64 bg-gray-800 rounded animate-pulse" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               {/* All Contents Skeleton */}
+               <div className="bg-surface border border-border p-6 rounded-2xl h-32 flex items-center gap-5">
+                  <div className="w-1.5 h-full bg-gray-800 rounded-full shrink-0 animate-pulse" />
+                  <div className="flex-1 space-y-3">
+                     <div className="h-6 w-40 bg-gray-800 rounded animate-pulse" />
+                     <div className="h-4 w-60 bg-gray-800 rounded animate-pulse" />
+                  </div>
+               </div>
+               {/* Chapter Skeletons */}
+               {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="bg-surface border border-border p-6 rounded-2xl h-32 flex items-center gap-5">
+                     <div className="w-1.5 h-full bg-gray-800 rounded-full shrink-0 animate-pulse" />
+                     <div className="flex-1 space-y-3">
+                        <div className="h-6 w-48 bg-gray-800 rounded animate-pulse" />
+                        <div className="h-4 w-56 bg-gray-800 rounded animate-pulse" />
+                     </div>
+                  </div>
+               ))}
+            </div>
+         </div>
+      );
+   }
    if (!subject) return <div>Subject not found</div>;
 
    // Helper to calculate counts

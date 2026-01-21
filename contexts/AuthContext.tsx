@@ -23,10 +23,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        console.log('AuthProvider: Initializing...');
+
         // Get initial session
         supabase.auth.getSession().then(({ data: { session }, error }) => {
-            console.log('AuthProvider: getSession result', { session, error });
+
             if (error) {
                 console.error('AuthProvider: Error getting session', error);
                 setLoading(false);
@@ -36,10 +36,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
-                console.log('AuthProvider: User found, fetching profile', session.user.id);
+
                 fetchProfile(session.user.id);
             } else {
-                console.log('AuthProvider: No user session found. Loading complete.');
+
                 setLoading(false);
             }
         }).catch(err => {
@@ -49,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log('AuthProvider: Auth state change', event, session);
+
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
@@ -76,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchProfile = async (userId: string) => {
         try {
-            console.log('AuthProvider: Fetching profile for', userId);
+
 
             // Create a timeout promise
             const timeoutPromise = new Promise((_, reject) =>
@@ -101,13 +101,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Creating a simplified profile locally to stop loading?
                 // For now, just logging.
             } else {
-                console.log('AuthProvider: Profile fetched', data);
+
                 setProfile(data);
             }
         } catch (err) {
             console.error('Unexpected error fetching profile:', err);
         } finally {
-            console.log('AuthProvider: Loading complete (finally)');
+
             setLoading(false);
         }
     };

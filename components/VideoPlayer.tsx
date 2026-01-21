@@ -238,9 +238,16 @@ const ContentVideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, thumbnailU
                 await containerRef.current.requestFullscreen();
                 setIsFullscreen(true);
             }
-            // Attempt to lock to landscape
+
             if (screen.orientation && 'lock' in screen.orientation) {
-                await (screen.orientation as any).lock('landscape');
+                const currentType = screen.orientation.type;
+                if (currentType.startsWith('landscape')) {
+                    // If already landscape, unlock to allow rotation or lock to portrait
+                    (screen.orientation as any).unlock();
+                } else {
+                    // Lock to landscape
+                    await (screen.orientation as any).lock('landscape');
+                }
             }
         } catch (e) {
             console.warn("Orientation lock failed or not supported:", e);
@@ -249,6 +256,15 @@ const ContentVideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, thumbnailU
 
     const togglePiP = async () => {
         if (videoRef.current) {
+            // iOS Safari Support
+            if ((videoRef.current as any).webkitSupportsPresentationMode) {
+                (videoRef.current as any).webkitSetPresentationMode(
+                    (videoRef.current as any).webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture"
+                );
+                return; // Exit early for iOS
+            }
+
+            // Standard API
             if (document.pictureInPictureElement) {
                 await document.exitPictureInPicture();
             } else {
@@ -355,7 +371,7 @@ const ContentVideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, thumbnailU
         };
     }, [isMinimized, loading, onMinimize]);
 
-    // Safety net: Poll for PiP sync and check on focus
+    // Safety net: Check on focus only (removed polling for performance)
     useEffect(() => {
         const checkPiP = () => {
             const isActuallyInPiP = !!document.pictureInPictureElement;
@@ -364,13 +380,8 @@ const ContentVideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, thumbnailU
             }
         };
 
-        const interval = setInterval(checkPiP, 100);
         window.addEventListener('focus', checkPiP);
-
-        return () => {
-            clearInterval(interval);
-            window.removeEventListener('focus', checkPiP);
-        };
+        return () => window.removeEventListener('focus', checkPiP);
     }, [isPiP]);
 
     // Helper for explicit maximizing
@@ -385,7 +396,7 @@ const ContentVideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, thumbnailU
     // Unified Render Logic
     const rootClasses = isMinimized
         ? `fixed bottom-20 right-4 sm:bottom-4 sm:right-4 z-[9999] w-72 sm:w-80 bg-[#16161a] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 fade-in duration-300 group transition-all ${isPiP ? 'opacity-0 pointer-events-none' : 'opacity-100'}`
-        : `fixed inset-0 bg-black z-[9999] flex flex-col font-sans select-none group`;
+        : `fixed inset-0 h-[100dvh] bg-black z-[9999] flex flex-col font-sans select-none group touch-none`;
 
     return (
         <div
@@ -413,117 +424,176 @@ const ContentVideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, thumbnailU
                 </div>
             )}
 
-            {/* --- VIDEO CONTAINER (Shared) --- */}
-            <div
-                className={isMinimized ? "relative aspect-video bg-black cursor-pointer" : "flex-1 relative bg-black flex items-center justify-center overflow-hidden w-full h-full"}
-                onClick={() => {
-                    if (isMinimized) {
-                        handleMaximize();
-                    } else {
-                        if (!showSettings && showControls) togglePlay();
-                    }
-                }}
-                onDoubleClick={!isMinimized ? toggleFullscreen : undefined}
-            >
-                {/* Mini Player Header Overlay */}
-                {isMinimized && (
-                    <div
-                        className="absolute top-0 left-0 right-0 p-2 z-20 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <button onClick={handleMaximize} className="bg-black/50 p-2 rounded-full hover:bg-black/80 text-white transition-colors" title="Maximize">
-                            <Maximize size={16} />
+            {/* --- MINI PLAYER HEADER OVERLAY --- */}
+            {isMinimized && (
+                <div
+                    className="absolute top-0 left-0 right-0 p-2 z-50 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button onClick={handleMaximize} className="bg-black/50 p-2 rounded-full hover:bg-black/80 text-white transition-colors" title="Maximize">
+                        <Maximize size={16} />
+                    </button>
+                    <button onClick={onClose} className="bg-black/50 p-2 rounded-full hover:bg-black/80 text-white transition-colors" title="Close">
+                        <X size={16} />
+                    </button>
+                </div>
+            )}
+
+            {/* --- CENTER CONTROLS (Mobile & Buffering) --- */}
+            <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                {/* Center Controls (Skip + Play/Load) - Visible on Touch/Mobile when Controls shown */}
+                {!error && !isMinimized && (
+                    <div className={`flex items-center gap-8 transition-opacity duration-300 ${showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0'}`}>
+                        {/* Mobile Skip Back */}
+                        <button onClick={(e) => { e.stopPropagation(); skip(-10); }} className="p-3 text-white sm:hidden animate-in zoom-in slide-in-from-right-4 active:-rotate-45 transition-transform duration-200">
+                            <RotateCcw size={32} className="drop-shadow-md" />
                         </button>
-                        <button onClick={onClose} className="bg-black/50 p-2 rounded-full hover:bg-black/80 text-white transition-colors" title="Close">
-                            <X size={16} />
+
+                        {/* Main Play/Pause AND Loading Spinner */}
+                        <div className="relative flex items-center justify-center">
+                            <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className={`w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center text-white transition-all hover:scale-105 active:scale-95 group/play drop-shadow-lg ${loading ? 'opacity-50' : 'opacity-100'}`}>
+                                {isPlaying ? (
+                                    <Pause className="w-8 h-8 sm:w-10 sm:h-10 fill-white" />
+                                ) : (
+                                    <Play className="w-8 h-8 sm:w-10 sm:h-10 ml-1 fill-white" />
+                                )}
+                            </button>
+
+                            {/* Loading Overlay */}
+                            {loading && (
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <Loader2 className="w-10 h-10 text-white animate-spin drop-shadow-md" />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Mobile Skip Forward */}
+                        <button onClick={(e) => { e.stopPropagation(); skip(10); }} className="p-3 text-white sm:hidden animate-in zoom-in slide-in-from-left-4 active:rotate-45 transition-transform duration-200">
+                            <RotateCw size={32} className="drop-shadow-md" />
                         </button>
                     </div>
                 )}
-
-                <video
-                    ref={videoRef}
-                    className={`w-full h-full ${isMinimized ? 'object-cover' : 'max-h-screen object-contain'}`}
-                    autoPlay
-                    playsInline
-                    src={url}
-                    poster={!isMinimized ? thumbnailUrl : undefined}
-                    muted={isMuted}
-                    onCanPlay={() => setLoading(false)}
-                    onWaiting={() => setLoading(true)}
-                    onPlaying={() => { setLoading(false); setIsPlaying(true); }}
-                    onPause={() => setIsPlaying(false)}
-                    onTimeUpdate={handleTimeUpdate}
-                    onLoadedMetadata={handleLoadedMetadata}
-                    onError={(e) => {
-                        setLoading(false);
-                        console.error("Video Error:", e);
-                        setError("Playback Error");
-                    }}
-                />
-
-                {/* --- FULL SCREEN OVERLAYS --- */}
-                {!isMinimized && (
-                    <>
-                        {/* Seek Animations */}
-                        {showSeekAnimation === 'forward' && (
-                            <div className="absolute right-1/4 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center text-white/80 animate-in fade-in zoom-in duration-300">
-                                <SkipForward size={48} className="drop-shadow-lg" />
-                                <span className="font-bold text-lg drop-shadow-md">+10s</span>
-                            </div>
-                        )}
-                        {showSeekAnimation === 'backward' && (
-                            <div className="absolute left-1/4 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center text-white/80 animate-in fade-in zoom-in duration-300">
-                                <SkipBack size={48} className="drop-shadow-lg" />
-                                <span className="font-bold text-lg drop-shadow-md">-10s</span>
-                            </div>
-                        )}
-
-                        {/* Loading */}
-                        {loading && !error && (
-                            <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none bg-black/10 backdrop-blur-[1px]">
-                                <div className="bg-black/50 p-4 rounded-full backdrop-blur-md">
-                                    <Loader2 className="w-10 h-10 text-white animate-spin" />
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Error */}
-                        {error && (
-                            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/80 p-6 text-center">
-                                <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-                                <p className="text-white font-bold text-lg mb-2">{error}</p>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); if (videoRef.current) { videoRef.current.load(); setLoading(true); setError(null); } }}
-                                    className="px-6 py-2 bg-white text-black font-bold rounded hover:bg-gray-200 transition"
-                                >
-                                    Retry
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Center Play Button Overlay */}
-                        {!loading && !error && !isPlaying && (
-                            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                                <div className="w-20 h-20 bg-black/40 rounded-full flex items-center justify-center border border-white/10 backdrop-blur-md animate-in zoom-in duration-200 shadow-xl">
-                                    <Play className="w-8 h-8 text-white ml-1 fill-white" />
-                                </div>
-                            </div>
-                        )}
-                    </>
-                )}
-
-                {/* --- MINI PLAYER OVERLAYS --- */}
-                {isMinimized && (
-                    <>
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); togglePlay(); }}>
-                            {isPlaying ? <Pause className="fill-white text-white drop-shadow-md" size={32} /> : <Play className="fill-white text-white drop-shadow-md" size={32} />}
-                        </div>
-                        <div className="absolute bottom-0 left-0 h-1 bg-white/30 w-full">
-                            <div className="h-full bg-red-500" style={{ width: `${(currentTime / (duration || 1)) * 100}%` }} />
-                        </div>
-                    </>
-                )}
             </div>
+
+            {/* --- VIDEO CLICK AREA (Double Tap) --- */}
+            <div
+                className="absolute inset-0 z-0"
+                onClick={(e) => {
+                    // Simple Double Tap Logic
+                    const now = Date.now();
+                    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const width = rect.width;
+
+                    // Check for double click manually since we want to support single click toggle too
+                    // For simplicity in this iteration, we rely on the buttons for seek and click for toggle
+                    // The user specifically asked for "double tab".
+                    // We can implement a "smart" click handler here.
+                    if (!isMinimized) {
+                        if (isMinimized) return;
+                        const isRight = x > width * 0.65;
+                        const isLeft = x < width * 0.35;
+
+                        if (isRight || isLeft) {
+                            // Potential seek zone
+                            // For now, let's just stick to single tap toggles controls to avoid conflict
+                            // or implement a dedicated double-tap handler if critical.
+                            // User asked: "double tab kare to 10 sec aage"
+                        }
+
+                        if (!showSettings && showControls) {
+                            // Toggle play if clicking center or controls visible
+                            // togglePlay(); // User requested to disable "Tap to Pause". Only close controls/reset timer.
+                            handleMouseMove();
+                        } else {
+                            handleMouseMove(); // Just show controls
+                        }
+                    } else {
+                        handleMaximize();
+                    }
+                }}
+                onDoubleClick={(e) => {
+                    if (isMinimized) return;
+                    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const width = rect.width;
+
+                    if (x > width * 0.6) {
+                        skip(10);
+                    } else if (x < width * 0.4) {
+                        skip(-10);
+                    } else {
+                        toggleFullscreen();
+                    }
+                }}
+            ></div>
+
+
+            <video
+                ref={videoRef}
+                className={`w-full h-full ${isMinimized ? 'object-cover' : 'max-h-screen object-contain'}`}
+                autoPlay
+                playsInline
+                src={url}
+                poster={!isMinimized ? thumbnailUrl : undefined}
+                muted={isMuted}
+                onCanPlay={() => setLoading(false)}
+                onWaiting={() => setLoading(true)}
+                onPlaying={() => { setLoading(false); setIsPlaying(true); }}
+                onPause={() => setIsPlaying(false)}
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
+                onError={(e) => {
+                    setLoading(false);
+                    console.error("Video Error:", e);
+                    setError("Playback Error");
+                }}
+            />
+
+            {/* --- FULL SCREEN OVERLAYS --- */}
+            {!isMinimized && (
+                <>
+                    {/* Seek Animations (Desktop Only) */}
+                    {showSeekAnimation === 'forward' && (
+                        <div className="absolute right-1/4 top-1/2 -translate-y-1/2 flex-col items-center justify-center text-white/80 animate-in fade-in zoom-in duration-300 hidden sm:flex">
+                            <SkipForward size={48} className="drop-shadow-lg" />
+                            <span className="font-bold text-lg drop-shadow-md">+10s</span>
+                        </div>
+                    )}
+                    {showSeekAnimation === 'backward' && (
+                        <div className="absolute left-1/4 top-1/2 -translate-y-1/2 flex-col items-center justify-center text-white/80 animate-in fade-in zoom-in duration-300 hidden sm:flex">
+                            <SkipBack size={48} className="drop-shadow-lg" />
+                            <span className="font-bold text-lg drop-shadow-md">-10s</span>
+                        </div>
+                    )}
+
+                    {/* Error */}
+                    {error && (
+                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/80 p-6 text-center">
+                            <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+                            <p className="text-white font-bold text-lg mb-2">{error}</p>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); if (videoRef.current) { videoRef.current.load(); setLoading(true); setError(null); } }}
+                                className="px-6 py-2 bg-white text-black font-bold rounded hover:bg-gray-200 transition"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* --- MINI PLAYER OVERLAYS --- */}
+            {isMinimized && (
+                <>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); togglePlay(); }}>
+                        {isPlaying ? <Pause className="fill-white text-white drop-shadow-md" size={32} /> : <Play className="fill-white text-white drop-shadow-md" size={32} />}
+                    </div>
+                    <div className="absolute bottom-0 left-0 h-1 bg-white/30 w-full">
+                        <div className="h-full bg-red-500" style={{ width: `${(currentTime / (duration || 1)) * 100}%` }} />
+                    </div>
+                </>
+            )}
 
             {/* --- FULL SCREEN CONTROLS --- */}
             {!isMinimized && (
@@ -545,11 +615,11 @@ const ContentVideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, thumbnailU
                     </div>
 
                     <div className="flex items-center justify-between text-white">
-                        <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2 sm:gap-6">
                             <button onClick={togglePlay} className="hover:text-[#6366f1] transition-colors focus:outline-none transform active:scale-95">
                                 {isPlaying ? <Pause className="fill-current w-8 h-8" /> : <Play className="fill-current w-8 h-8" />}
                             </button>
-                            <div className="flex items-center gap-2">
+                            <div className="hidden sm:flex items-center gap-2">
                                 <button onClick={() => skip(-10)} className="hover:text-white/80 transition-colors focus:outline-none p-1 group/skip"><RotateCcw size={22} className="group-active/skip:-rotate-45 transition-transform" /></button>
                                 <button onClick={() => skip(10)} className="hover:text-white/80 transition-colors focus:outline-none p-1 group/skip"><RotateCw size={22} className="group-active/skip:rotate-45 transition-transform" /></button>
                             </div>
@@ -591,7 +661,7 @@ const ContentVideoPlayer: React.FC<VideoPlayerProps> = ({ url, title, thumbnailU
                             <button onClick={toggleLandscape} className="hover:text-[#6366f1] transition-colors p-2 rounded-full hover:bg-white/10 block md:hidden" title="Rotate / Landscape">
                                 <Smartphone size={22} />
                             </button>
-                            <button onClick={togglePiP} className="hover:text-[#6366f1] transition-colors p-2 rounded-full hover:bg-white/10" title="Picture in Picture">
+                            <button onClick={togglePiP} className="hover:text-[#6366f1] transition-colors p-2 rounded-full hover:bg-white/10 hidden sm:block" title="Picture in Picture">
                                 <PictureInPicture size={22} />
                             </button>
                             <button onClick={toggleFullscreen} className="hover:text-[#6366f1] transition-colors p-2 rounded-full hover:bg-white/10">

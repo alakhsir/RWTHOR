@@ -29,7 +29,30 @@ export const Study = () => {
     fetchBatch();
   }, []);
 
-  if (loading) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin" /></div>;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        {/* Dropdown Skeleton */}
+        <div className="h-10 w-64 bg-gray-800 rounded-lg animate-pulse" />
+
+        {/* Today's Class Skeleton */}
+        <div className="bg-surface border border-border rounded-xl p-6 space-y-6">
+          <div className="h-6 w-32 bg-gray-800 rounded animate-pulse" />
+          <div className="h-32 bg-gray-800/50 rounded-lg animate-pulse" />
+          <div className="flex justify-center">
+            <div className="h-9 w-48 bg-gray-800 rounded animate-pulse" />
+          </div>
+        </div>
+
+        {/* Telegram Banner Skeleton */}
+        <div className="bg-surface border border-border rounded-xl p-6 space-y-4">
+          <div className="h-6 w-48 bg-gray-800 rounded animate-pulse" />
+          <div className="h-4 w-3/4 bg-gray-800 rounded animate-pulse" />
+          <div className="h-10 w-40 bg-gray-800 rounded animate-pulse" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

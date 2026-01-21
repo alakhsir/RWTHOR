@@ -176,10 +176,7 @@ export const api = {
     if (error) throw error;
   },
 
-  deleteBatch: async (id: string) => {
-    const { error } = await supabase.from('batches').delete().eq('id', id);
-    if (error) throw error;
-  },
+
 
   // --- ENROLLMENTS ---
   getEnrolledBatchIds: async (): Promise<string[]> => {
@@ -243,7 +240,7 @@ export const api = {
 
     // Map nested response to flat Subject array
     // @ts-ignore
-    return data.map(item => ({
+    return data.map((item: any) => ({
       id: item.master_subjects.id,
       name: item.master_subjects.name,
       icon: item.master_subjects.icon || 'Book',

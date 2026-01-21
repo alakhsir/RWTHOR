@@ -1,0 +1,128 @@
+{
+  "meta": {
+    "project": "Student Learning Platform",
+    "date": "2026-01-15",
+    "prepared_by": "Software Development Manager"
+  },
+  "product_overview": "A comprehensive student learning platform providing authentication, batch exploration, course content navigation, video playback, quizzes, and study material access in an intuitive web application.",
+  "core_goals": [
+    "Enable secure user and admin authentication with role-based access.",
+    "Allow students to explore, enroll, and manage learning batches.",
+    "Provide structured navigation through subjects, chapters, and associated course content.",
+    "Integrate a robust video player for lecture playback.",
+    "Offer supplementary learning resources like DPPs and PDFs.",
+    "Facilitate interactive assessments through quizzes.",
+    "Provide an admin dashboard for batch and content management."
+  ],
+  "key_features": [
+    "User and Admin Login with protected routes based on authentication state.",
+    "Explore available batches with detailed batch information and enrollment options.",
+    "View personal enrolled batches and their progress.",
+    "Navigate course content by subject and chapters within each batch.",
+    "Integrated video player for seamless lecture video playback.",
+    "Access downloadable PDFs and Daily Practice Problems (DPP) related to course material.",
+    "Quiz functionality to test student knowledge on the content delivered.",
+    "User profile management and settings.",
+    "Admin dashboard with capabilities to create and manage batches, content, and view metrics."
+  ],
+  "user_flow_summary": [
+    "User visits login page, authenticates, and is redirected according to role.",
+    "Authenticated users explore batches and enroll in preferred batches.",
+    "Users access enrolled batches and navigate to subjects, chapters, and videos.",
+    "Users watch lecture videos via the integrated player with controls.",
+    "Users download relevant PDFs and DPPs for study support.",
+    "Users take quizzes to assess their learning.",
+    "Admins log in and access the dashboard to create batches and manage content.",
+    "Admins monitor platform metrics and user engagement via dashboard."
+  ],
+  "validation_criteria": [
+    "Successful authentication and authorization with appropriate route protection.",
+    "Batch exploration loads correct batch lists and details dynamically.",
+    "Course content navigation reflects accurate subject and chapter hierarchy.",
+    "Video player functions correctly with smooth playback and context management.",
+    "PDFs and DPPs are accessible and downloadable without errors.",
+    "Quizzes load correctly and record responses reliably.",
+    "Admin functions execute batch creation and content management as expected.",
+    "Profile information displays and updates correctly.",
+    "Application routing works without dead ends or unauthorized access."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "TypeScript",
+      "React",
+      "Vite",
+      "TailwindCSS",
+      "Supabase",
+      "React Router"
+    ],
+    "features": [
+      {
+        "name": "Authentication",
+        "description": "User and Admin login functionality, including protected route management and authentication state context.",
+        "files": [
+          "pages/LoginPage.tsx",
+          "pages/admin/AdminLogin.tsx",
+          "contexts/AuthContext.tsx",
+          "components/ProtectedRoute.tsx"
+        ]
+      },
+      {
+        "name": "Batch Management",
+        "description": "Features for users to explore available batches, view their enrolled batches, and see detailed batch information.",
+        "files": [
+          "pages/ExploreBatches.tsx",
+          "pages/MyBatches.tsx",
+          "pages/BatchDetails.tsx",
+          "components/BatchCard.tsx"
+        ]
+      },
+      {
+        "name": "Course Content",
+        "description": "Navigation and display of subjects and chapters within a batch.",
+        "files": [
+          "pages/SubjectView.tsx",
+          "pages/ChapterView.tsx"
+        ]
+      },
+      {
+        "name": "Video Player",
+        "description": "Context and logic for video playback within the application.",
+        "files": [
+          "contexts/PlayerContext.tsx"
+        ]
+      },
+      {
+        "name": "Admin Dashboard",
+        "description": "Administrative interface for creating batches, managing content, and viewing dashboard metrics.",
+        "files": [
+          "pages/admin/AdminDashboard.tsx",
+          "pages/admin/CreateBatch.tsx",
+          "pages/admin/ManageContent.tsx",
+          "components/EditableDropdown.tsx"
+        ]
+      },
+      {
+        "name": "Profile",
+        "description": "User profile viewing and management.",
+        "files": [
+          "pages/ProfilePage.tsx"
+        ]
+      },
+      {
+        "name": "API Services",
+        "description": "Supabase client configuration and API service functions for data fetching.",
+        "files": [
+          "services/api.ts",
+          "services/supabase.ts"
+        ]
+      },
+      {
+        "name": "Routing",
+        "description": "Application routing configuration.",
+        "files": [
+          "App.tsx"
+        ]
+      }
+    ]
+  }
+}

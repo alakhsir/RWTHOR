@@ -1,0 +1,477 @@
+[
+  {
+    "id": "TC001",
+    "title": "User login success with valid credentials",
+    "description": "Verify that a user can successfully log in with valid username/email and password credentials, and is redirected to the correct dashboard based on role.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to user login page"
+      },
+      {
+        "type": "action",
+        "description": "Enter valid user email and password"
+      },
+      {
+        "type": "action",
+        "description": "Click on login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user is authenticated and redirected to the user dashboard"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Admin login success with valid credentials",
+    "description": "Verify that an admin can successfully log in with valid credentials and is redirected to the admin dashboard.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to admin login page"
+      },
+      {
+        "type": "action",
+        "description": "Enter valid admin username and password"
+      },
+      {
+        "type": "action",
+        "description": "Click on login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify admin is authenticated and redirected to the admin dashboard"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "User login failure with invalid credentials",
+    "description": "Verify that login fails with invalid credentials and appropriate error message is displayed.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to user login page"
+      },
+      {
+        "type": "action",
+        "description": "Enter invalid email and password"
+      },
+      {
+        "type": "action",
+        "description": "Click login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify login fails and error message is shown"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Route protection prevents unauthorized access",
+    "description": "Verify that protected routes redirect unauthenticated users to login page and restrict access based on role.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to navigate to user dashboard without login"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify redirect to login page occurs"
+      },
+      {
+        "type": "action",
+        "description": "Login as user"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access admin dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user cannot access admin dashboard and is either redirected or shown access denied"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Explore batches loads and displays batch list with details",
+    "description": "Verify that the Explore Batches page loads successfully and displays the list of available batches with detailed information.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as authenticated student user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Explore Batches page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that batches are listed with correct information such as batch name, start date, and enrollment options"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Enroll in batch triggers proper enrollment and updates My Batches",
+    "description": "Verify that enrolling in a batch updates the user's enrolled batches and reflects accurately in the My Batches page.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to Explore Batches page"
+      },
+      {
+        "type": "action",
+        "description": "Select a batch and click enroll button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify enrollment confirmation is shown"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to My Batches page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify enrolled batch appears with correct progress details"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "View personal enrolled batches and progress",
+    "description": "Verify that the My Batches page displays all enrolled batches and their progress accurately for the logged-in user.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as student user with enrolled batches"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to My Batches page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all enrolled batches are listed with progress status"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Course content navigation through subjects and chapters",
+    "description": "Verify navigation inside a batch shows subjects and chapters correctly and users can drill down to chapter level content.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to My Batches page"
+      },
+      {
+        "type": "action",
+        "description": "Select an enrolled batch"
+      },
+      {
+        "type": "action",
+        "description": "Verify subject list is displayed"
+      },
+      {
+        "type": "action",
+        "description": "Select a subject and verify chapter list is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure correct navigation hierarchy and data is displayed at each level"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Video player playback and controls functionality",
+    "description": "Verify that the integrated video player in ChapterView plays lecture videos smoothly with working play, pause, seek, and volume controls.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to a chapter with video content"
+      },
+      {
+        "type": "action",
+        "description": "Start video playback"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify video plays smoothly without errors"
+      },
+      {
+        "type": "action",
+        "description": "Use pause control and verify video pauses"
+      },
+      {
+        "type": "action",
+        "description": "Seek to different position in the video and verify playback"
+      },
+      {
+        "type": "action",
+        "description": "Adjust volume and verify changes"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Access and download PDFs and DPPs without errors",
+    "description": "Verify that related PDFs and Daily Practice Problems (DPPs) are accessible from course content and can be downloaded successfully.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to chapter or subject view with supplementary materials"
+      },
+      {
+        "type": "action",
+        "description": "Click on a PDF or DPP link"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that PDF/DPP content loads or downloads correctly without errors"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Quiz loads correctly and user responses are recorded",
+    "description": "Verify that quizzes for course content load properly, accept user answers, and submit responses accurately.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to quiz associated with a chapter"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify quiz questions display correctly"
+      },
+      {
+        "type": "action",
+        "description": "Answer quiz questions"
+      },
+      {
+        "type": "action",
+        "description": "Submit quiz responses"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that responses are recorded and quiz result or confirmation is displayed"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Admin creates new batch successfully",
+    "description": "Verify that an admin can create a new batch using the CreateBatch page and it appears in the batch list afterwards.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as admin user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Create Batch page"
+      },
+      {
+        "type": "action",
+        "description": "Fill in batch creation form with valid data"
+      },
+      {
+        "type": "action",
+        "description": "Submit batch creation form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify batch is created successfully and visible in batch listings"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Admin manages content with EditableDropdown functionality",
+    "description": "Verify that admin can edit and manage batch/course content using the ManageContent page and EditableDropdown component works as expected.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as admin user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Manage Content page"
+      },
+      {
+        "type": "action",
+        "description": "Use EditableDropdown to update content selections"
+      },
+      {
+        "type": "action",
+        "description": "Save changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that content updates persist and reflect correctly"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Profile displays current user information",
+    "description": "Verify that the Profile page loads and displays accurate information of the logged-in user.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as student user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Profile page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify profile information such as name, email, and settings are displayed accurately"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "User updates profile information successfully",
+    "description": "Verify that user can update profile details and changes are saved and reflected correctly.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to Profile page"
+      },
+      {
+        "type": "action",
+        "description": "Edit profile fields such as name or preferences"
+      },
+      {
+        "type": "action",
+        "description": "Save profile changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that updates succeed and are displayed after save"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Batch exploration shows appropriate empty state when no batches available",
+    "description": "Verify the Explore Batches page displays an appropriate message or UI when no batches are available for enrollment.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Ensure no batches are available in backend"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Explore Batches page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify appropriate empty state or message is displayed"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Application routing handles invalid URLs gracefully",
+    "description": "Verify that navigating to invalid or non-existent URLs results in appropriate 404 or fallback pages without crashing the app.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to an invalid URL in the application"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that 404 or Not Found page is displayed and no dead ends occur"
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Quiz handles incomplete or invalid user input correctly",
+    "description": "Verify that the quiz interface properly handles incomplete submissions or invalid input and provides proper feedback to the user.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to a quiz and leave some questions unanswered"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to submit quiz"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify system prompts for unanswered questions or handles incomplete answers gracefully"
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "Critical pages load within performance thresholds",
+    "description": "Verify that key pages (Home, Dashboard, Chapter View) load and become interactive within acceptable time limits (e.g., under 3 seconds) to ensure optimal user experience.",
+    "category": "performance",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to Home page and measure load time"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Dashboard and measure load time"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to a Chapter View and measure load time"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all measured load times are under 3 seconds"
+      }
+    ]
+  }
+]
