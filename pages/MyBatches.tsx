@@ -68,16 +68,18 @@ export const MyBatches = () => {
       <h1 className="text-2xl font-bold">My Batches</h1>
 
       {myBatches.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {myBatches.map(batch => (
-            <div key={batch.id} className="h-full">
-              <BatchCard
-                batch={batch}
-                isEnrolled={true}
-                onEnrollChange={handleEnrollChange}
-              />
-            </div>
-          ))}
+        <div className="bg-transparent border border-gray-800 rounded-2xl p-4 lg:p-6 shadow-xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {myBatches.map(batch => (
+              <div key={batch.id} className="h-full">
+                <BatchCard
+                  batch={batch}
+                  isEnrolled={true}
+                  onEnrollChange={handleEnrollChange}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       ) : (
         <div className="text-center py-20 text-gray-500 bg-gray-900/50 rounded-2xl border border-dashed border-gray-800">

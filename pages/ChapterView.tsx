@@ -36,6 +36,7 @@ export const ChapterView = () => {
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [visitedQuestions, setVisitedQuestions] = useState<Set<number>>(new Set());
   const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [reviewMode, setReviewMode] = useState(false); // [NEW] Review mode state
   const [timeLeft, setTimeLeft] = useState(0);
 
   const isAllContent = chapterId === 'all';
@@ -118,6 +119,7 @@ export const ChapterView = () => {
     setSelectedAnswers({});
     setVisitedQuestions(new Set([0]));
     setQuizSubmitted(false);
+    setReviewMode(false); // [NEW] Reset review mode
     let durationSeconds = 45 * 60;
     if (item.duration) {
       // Match numbers at the start of the string or before 'm'/'min'
@@ -144,7 +146,34 @@ export const ChapterView = () => {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [activeQuiz, quizSubmitted, timeLeft]);
+  }, [activeQuiz, quizSubmitted, timeLeft]); // Timer stops on submit
+
+  // [NEW] Helper for option styling in Review Mode
+  const getOptionClass = (optionIndex: number, correctIndex: number, isSelected: boolean) => {
+    if (!reviewMode) {
+      // Normal Quiz Mode
+      if (isSelected) return 'border-blue-600 bg-blue-50/50';
+      return 'border-gray-200 hover:bg-gray-50';
+    } else {
+      // Review Mode
+      if (optionIndex === correctIndex) return 'border-green-600 bg-green-50/50'; // Correct Answer
+      if (isSelected && optionIndex !== correctIndex) return 'border-red-600 bg-red-50/50'; // Wrong Selection
+      return 'border-gray-200 opacity-50'; // Other options
+    }
+  };
+
+  const getOptionBadgeClass = (optionIndex: number, correctIndex: number, isSelected: boolean) => {
+    if (!reviewMode) {
+      // Normal Quiz Mode
+      if (isSelected) return 'border-blue-600 bg-blue-600 text-white';
+      return 'border-gray-400 text-gray-500';
+    } else {
+      // Review Mode
+      if (optionIndex === correctIndex) return 'border-green-600 bg-green-600 text-white'; // Correct Badge
+      if (isSelected && optionIndex !== correctIndex) return 'border-red-600 bg-red-600 text-white'; // Wrong Badge
+      return 'border-gray-400 text-gray-500';
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -165,7 +194,7 @@ export const ChapterView = () => {
   };
 
   const handleOptionSelect = (optionIndex: number) => {
-    if (quizSubmitted) return;
+    if (quizSubmitted || reviewMode) return; // Disable selection in review mode
     setSelectedAnswers(prev => ({ ...prev, [currentQuestionIndex]: optionIndex }));
   };
 
@@ -273,7 +302,8 @@ export const ChapterView = () => {
     const positiveMark = parseFloat((totalMarks / totalQ).toFixed(2));
     const negativeMark = 0;
 
-    if (quizSubmitted) {
+    // Show Result Summary only if Submitted AND NOT in Review Mode
+    if (quizSubmitted && !reviewMode) {
       const attemptedCount = Object.keys(selectedAnswers).length;
       const correctCount = questions.filter((q, i) => selectedAnswers[i] === q.correctOptionIndex).length;
       const incorrectCount = questions.filter((q, i) => selectedAnswers[i] !== undefined && selectedAnswers[i] !== q.correctOptionIndex).length;
@@ -313,7 +343,10 @@ export const ChapterView = () => {
                 <div><p className="text-[10px] text-gray-400 font-bold uppercase">Incorrect</p><p className="text-2xl font-bold text-pink-500">{incorrectCount}</p></div>
               </div>
             </div>
-            <button onClick={() => setActiveQuiz(null)} className="w-full bg-white hover:bg-gray-100 text-black font-extrabold py-4 rounded-full text-sm tracking-wide shadow-lg transition-transform active:scale-95">RETURN TO BATCH</button>
+            <div className="flex gap-4 w-full">
+              <button onClick={() => setReviewMode(true)} className="flex-1 bg-[#1f2937] hover:bg-[#374151] text-white font-bold py-4 rounded-full text-sm tracking-wide shadow-lg transition-transform active:scale-95 border border-gray-700">REVIEW ANSWERS</button>
+              <button onClick={() => setActiveQuiz(null)} className="flex-1 bg-white hover:bg-gray-100 text-black font-extrabold py-4 rounded-full text-sm tracking-wide shadow-lg transition-transform active:scale-95">RETURN TO BATCH</button>
+            </div>
           </div>
         </div>
       );
@@ -333,7 +366,11 @@ export const ChapterView = () => {
               <span className={`font-mono font-bold text-xs lg:text-sm ${timeLeft < 300 ? 'text-red-500' : ''}`}>{formatTime(timeLeft)}</span>
             </div>
             <button className="lg:hidden p-1.5 text-white hover:bg-white/10 rounded" onClick={() => setIsSidebarOpen(!isSidebarOpen)}><Menu size={20} /></button>
-            <button onClick={() => setQuizSubmitted(true)} className="bg-[#ef4444] hover:bg-[#dc2626] text-white px-3 py-1.5 lg:px-6 lg:py-2 rounded font-bold text-[10px] lg:text-sm uppercase tracking-wider shadow-lg shadow-red-900/20 whitespace-nowrap">Submit</button>
+            {reviewMode ? (
+              <button onClick={() => setReviewMode(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 lg:px-6 lg:py-2 rounded font-bold text-[10px] lg:text-sm uppercase tracking-wider shadow-lg whitespace-nowrap">Exit Review</button>
+            ) : (
+              <button onClick={() => setQuizSubmitted(true)} className="bg-[#ef4444] hover:bg-[#dc2626] text-white px-3 py-1.5 lg:px-6 lg:py-2 rounded font-bold text-[10px] lg:text-sm uppercase tracking-wider shadow-lg shadow-red-900/20 whitespace-nowrap">Submit</button>
+            )}
           </div>
         </div>
         <div className="flex flex-1 overflow-hidden relative">
@@ -345,13 +382,13 @@ export const ChapterView = () => {
             <div className="flex-1 overflow-y-auto px-3 lg:px-8 pb-20 custom-scrollbar">
               <div className="max-w-4xl mx-auto w-full">
                 <div className="bg-white text-black rounded-xl p-4 lg:p-10 shadow-xl min-h-[50vh] flex flex-col mt-2">
-                  <div className="text-base lg:text-xl font-sans font-medium leading-relaxed mb-4 lg:mb-6"><span dangerouslySetInnerHTML={formatText(currentQ.text)} /></div>
+                  <div className="text-base lg:text-xl font-urdu font-medium leading-[2.5] mb-4 lg:mb-6"><span dangerouslySetInnerHTML={formatText(currentQ.text)} /></div>
                   {currentQ.imageUrl && (<div className="mb-6 flex justify-center"><img src={currentQ.imageUrl} alt="Question" className="max-h-48 lg:max-h-80 w-auto object-contain border border-gray-200 rounded" /></div>)}
                   <div className="space-y-3 mt-auto pt-4">
                     {currentQ.options.map((opt, idx) => (
-                      <button key={idx} onClick={() => handleOptionSelect(idx)} className={`w-full text-left p-3 lg:p-4 rounded-lg border-2 transition-all flex items-center gap-3 lg:gap-4 hover:bg-gray-50 ${selectedAnswers[currentQuestionIndex] === idx ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200'}`}>
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${selectedAnswers[currentQuestionIndex] === idx ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-400 text-gray-500'}`}>{idx + 1}</div>
-                        <span className="text-base font-medium text-gray-800" dangerouslySetInnerHTML={formatText(opt)} />
+                      <button key={idx} onClick={() => handleOptionSelect(idx)} className={`w-full text-left p-3 lg:p-4 rounded-lg border-2 transition-all flex items-center gap-3 lg:gap-4 ${getOptionClass(idx, currentQ.correctOptionIndex, selectedAnswers[currentQuestionIndex] === idx)}`}>
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${getOptionBadgeClass(idx, currentQ.correctOptionIndex, selectedAnswers[currentQuestionIndex] === idx)}`}>{idx + 1}</div>
+                        <span className="text-base font-medium text-gray-800 font-urdu leading-loose" dangerouslySetInnerHTML={formatText(opt)} />
                       </button>
                     ))}
                   </div>
@@ -381,9 +418,20 @@ export const ChapterView = () => {
                   const isAnswered = selectedAnswers[idx] !== undefined;
                   const isVisited = visitedQuestions.has(idx);
                   let btnClass = "border-gray-700 text-gray-500 bg-transparent";
-                  if (isCurrent) btnClass = "border-primary text-white ring-2 ring-primary ring-offset-2 ring-offset-[#0d0f12] bg-primary";
-                  else if (isAnswered) btnClass = "border-green-600 bg-green-600 text-white";
-                  else if (isVisited) btnClass = "border-red-500 text-red-500 bg-red-500/10";
+                  if (reviewMode) {
+                    // Review Mode Logic for Sidebar
+                    if (selectedAnswers[idx] === questions[idx].correctOptionIndex) btnClass = "border-green-600 bg-green-900/20 text-green-500"; // Correct
+                    else if (selectedAnswers[idx] !== undefined) btnClass = "border-red-600 bg-red-900/20 text-red-500"; // Wrong
+                    else btnClass = "border-gray-700 bg-gray-800 text-gray-400"; // Skipped, showing as neutral/unanswered style or distinct color
+
+                    // if currenlty viewing this question in review
+                    if (isCurrent) btnClass += " ring-2 ring-white ring-offset-2 ring-offset-[#0d0f12]";
+                  } else {
+                    // Normal Quiz Logic
+                    if (isCurrent) btnClass = "border-primary text-white ring-2 ring-primary ring-offset-2 ring-offset-[#0d0f12] bg-primary";
+                    else if (isAnswered) btnClass = "border-green-600 bg-green-600 text-white";
+                    else if (isVisited) btnClass = "border-red-500 text-red-500 bg-red-500/10";
+                  }
                   return <button key={idx} onClick={() => { setCurrentQuestionIndex(idx); if (window.innerWidth < 1024) setIsSidebarOpen(false); }} className={`aspect-square rounded-lg flex items-center justify-center text-sm font-bold border transition-all ${btnClass}`}>{idx + 1}</button>
                 })}
               </div>
@@ -391,10 +439,20 @@ export const ChapterView = () => {
             <div className="p-4 border-t border-[#27292e]">
               <h4 className="text-xs text-gray-500 font-bold uppercase mb-3">Legend</h4>
               <div className="grid grid-cols-2 gap-y-2 gap-x-4">
-                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-600"></div><span className="text-[10px] text-gray-400 uppercase font-bold">Answered</span></div>
-                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500/50 border border-red-500"></div><span className="text-[10px] text-gray-400 uppercase font-bold">Skipped</span></div>
-                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-primary border border-white"></div><span className="text-[10px] text-gray-400 uppercase font-bold">Current</span></div>
-                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full border border-gray-600"></div><span className="text-[10px] text-gray-400 uppercase font-bold">Unvisited</span></div>
+                {reviewMode ? (
+                  <>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-600"></div><span className="text-[10px] text-gray-400 uppercase font-bold">Correct</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-600"></div><span className="text-[10px] text-gray-400 uppercase font-bold">Wrong</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-gray-600"></div><span className="text-[10px] text-gray-400 uppercase font-bold">Skipped</span></div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-600"></div><span className="text-[10px] text-gray-400 uppercase font-bold">Answered</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500/50 border border-red-500"></div><span className="text-[10px] text-gray-400 uppercase font-bold">Skipped</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-primary border border-white"></div><span className="text-[10px] text-gray-400 uppercase font-bold">Current</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full border border-gray-600"></div><span className="text-[10px] text-gray-400 uppercase font-bold">Unvisited</span></div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -484,13 +542,13 @@ export const ChapterView = () => {
             <div className="flex-1 overflow-y-auto px-4 lg:px-8 pb-24 custom-scrollbar">
               <div className="max-w-4xl mx-auto w-full">
                 <div className="bg-white text-black rounded-xl p-6 lg:p-10 shadow-xl min-h-[400px] flex flex-col">
-                  <div className="text-lg lg:text-xl font-serif font-medium leading-relaxed mb-6"><span dangerouslySetInnerHTML={formatText(currentQ.text)} /></div>
+                  <div className="text-lg lg:text-xl font-urdu font-medium leading-[2.5] mb-6"><span dangerouslySetInnerHTML={formatText(currentQ.text)} /></div>
                   {currentQ.imageUrl && (<div className="mb-8 flex justify-center"><img src={currentQ.imageUrl} alt="Question" className="max-h-60 lg:max-h-80 w-auto object-contain border border-gray-200 rounded" /></div>)}
                   <div className="space-y-3 mt-auto pt-6">
                     {currentQ.options.map((opt, idx) => (
                       <button key={idx} onClick={() => handleOptionSelect(idx)} className={`w-full text-left p-4 rounded-lg border-2 transition-all flex items-start gap-4 hover:bg-gray-50 ${selectedAnswers[currentQuestionIndex] === idx ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200'}`}>
                         <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${selectedAnswers[currentQuestionIndex] === idx ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-400 text-gray-500'}`}>{idx + 1}</div>
-                        <span className="text-base font-medium text-gray-800" dangerouslySetInnerHTML={formatText(opt)} />
+                        <span className="text-base font-medium text-gray-800 font-urdu leading-loose" dangerouslySetInnerHTML={formatText(opt)} />
                       </button>
                     ))}
                   </div>
@@ -545,112 +603,108 @@ export const ChapterView = () => {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold flex items-center gap-2 mt-2">{chapter.title}</h1>
-      <div className="overflow-x-auto pb-2">
-        <div className="bg-[#1e1e24] p-1.5 rounded-lg inline-flex gap-1 min-w-max">
-          {['Lectures', 'Notes', 'DPP Quiz', 'DPP PDF', 'DPP Video'].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-8 py-3 rounded-md text-base font-bold transition-all whitespace-nowrap ${activeTab === tab ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>{tab}</button>
-          ))}
-        </div>
-      </div>
-
-
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {contentList.length > 0 ? (
-          contentList.map(item => (
-            <div
-              key={item.id}
-              className={`bg-transparent border rounded-xl overflow-hidden group transition-all flex flex-col h-full shadow-lg cursor-pointer ${item.type === ContentType.QUIZ ? 'border-green-900/40 hover:border-green-500' : 'border-border hover:border-gray-500'}`}
-              onClick={() => {
-                if (item.type === ContentType.VIDEO || item.type === ContentType.DPP_VIDEO) {
-                  const isDrive = item.url?.includes('drive.google.com') || item.url?.includes('docs.google.com');
-                  if (isDrive) {
-                    setActiveVideo(item);
-                  } else {
-                    playVideo({
-                      url: item.url,
-                      title: item.title,
-                      thumbnailUrl: item.thumbnailUrl
-                    });
-                  }
-                }
-              }}
-            >
-              {/* Video Card */}
-              {(item.type === ContentType.VIDEO || item.type === ContentType.DPP_VIDEO) && (
-                <>
-                  <div className="relative aspect-video bg-black">
-                    <img src={item.thumbnailUrl} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" alt={item.title} />
-                    <div className="absolute bottom-3 right-3 w-10 h-10 bg-primary rounded-full flex items-center justify-center pl-1 shadow-lg shadow-black/50 group-hover:scale-110 transition-transform"><Play fill="white" size={18} /></div>
-                  </div>
-                  <div className="p-4 flex flex-col flex-1">
-                    <div className="flex items-center justify-between text-xs font-medium mb-3">
-                      <span className="text-gray-400 font-bold">{new Date(item.uploadDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                      <div className="flex items-center gap-1 text-gray-400"><Clock size={12} /><span>{item.duration}</span></div>
-                    </div>
-                    <h3 className="text-sm font-bold text-white leading-snug line-clamp-2">{item.title}</h3>
-                  </div>
-                </>
-              )}
-
-              {/* PDF Card */}
-              {item.type === ContentType.PDF && (
-                <div className="flex flex-col h-full p-5 relative">
-                  <div className="flex-1 mb-6">
-                    <h3 className="font-bold text-lg text-gray-100 leading-snug mb-3 line-clamp-3">{item.title}</h3>
-                    <p className="text-xs text-gray-400 font-bold">{new Date(item.uploadDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                  </div>
-                  <div className="pt-4 flex items-center justify-between border-t border-border/50">
-                    {/* Preview Button */}
-                    {/* Preview Button */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setPdfPreviewUrl(item.url || ''); }}
-                      className="w-full bg-[#1f2937] hover:bg-[#374151] hover:text-white text-gray-300 font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all text-sm border border-gray-700 active:scale-95"
-                      title="Preview PDF"
-                    >
-                      <FileText size={18} /> Preview
-                    </button>
-                    {/* Download Button */}
-                    {/* Download Button REMOVED for Security */}
-                  </div>
-                </div>
-              )}
-
-              {/* Quiz Card */}
-              {item.type === ContentType.QUIZ && (
-                <div className="flex flex-col h-full p-5">
-                  <div className="flex justify-between items-start mb-5">
-                    <div className="w-10 h-10 rounded-lg bg-[#1e1e24] flex items-center justify-center border border-gray-700/50"><BarChart2 className="text-green-500" size={20} /></div>
-                    <span className="bg-[#2a2b30] text-gray-400 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider border border-gray-700">UNLOCKED</span>
-                  </div>
-                  <div className="mb-4 flex-1">
-                    <h3 className="text-green-500 font-bold text-lg leading-snug mb-2 line-clamp-2">{item.title}</h3>
-                    <p className="text-xs text-blue-400 font-medium">Uploaded: {item.uploadDate}</p>
-                  </div>
-                  <div className="border-t border-gray-800 pt-4 mb-5">
-                    <div className="grid grid-cols-3 divide-x divide-gray-800 text-center">
-                      <div className="px-1"><p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Questions</p><p className="text-white font-bold text-lg">{item.questions || item.quizData?.length || 0}</p></div>
-                      <div className="px-1"><p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Marks</p><p className="text-green-500 font-bold text-lg">{item.marks || '-'}</p></div>
-                      <div className="px-1"><p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Time</p><p className="text-gray-300 font-bold text-xs mt-1">{item.duration || 'N/A'}</p></div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleStartQuiz(item); }}
-                    className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all uppercase tracking-wide text-sm shadow-lg shadow-green-900/20 active:scale-95"
-                  >
-                    <Play size={16} fill="white" /> Start
-                  </button>
-                </div>
-              )}
-            </div>
-          ))
-        ) : (
-          <div className="col-span-full py-20 flex flex-col items-center justify-center border border-dashed border-gray-700 rounded-xl bg-surface/50">
-            <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-4"><FileText className="text-gray-500" size={32} /></div>
-            <div className="text-xl font-bold text-gray-300 mb-2">No Content Here</div>
-            <p className="text-gray-500 text-sm">Content for this section will be uploaded soon.</p>
+      <div className="bg-transparent border border-gray-800 rounded-2xl p-4 lg:p-6 shadow-xl">
+        <div className="overflow-x-auto pb-4 mb-2">
+          <div className="bg-[#1e1e24] p-1.5 rounded-lg inline-flex gap-1 min-w-max">
+            {['Lectures', 'Notes', 'DPP Quiz', 'DPP PDF', 'DPP Video'].map(tab => (
+              <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-2.5 rounded-md text-sm lg:text-base font-bold transition-all whitespace-nowrap ${activeTab === tab ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>{tab}</button>
+            ))}
           </div>
-        )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {contentList.length > 0 ? (
+            contentList.map(item => (
+              <div
+                key={item.id}
+                className={`bg-transparent border rounded-xl overflow-hidden group transition-all flex flex-col h-full shadow-lg cursor-pointer ${item.type === ContentType.QUIZ ? 'border-green-900/40 hover:border-green-500' : 'border-border hover:border-gray-500'}`}
+                onClick={() => {
+                  if (item.type === ContentType.VIDEO || item.type === ContentType.DPP_VIDEO) {
+                    const isDrive = item.url?.includes('drive.google.com') || item.url?.includes('docs.google.com');
+                    if (isDrive) {
+                      setActiveVideo(item);
+                    } else {
+                      playVideo({
+                        url: item.url,
+                        title: item.title,
+                        thumbnailUrl: item.thumbnailUrl
+                      });
+                    }
+                  }
+                }}
+              >
+                {/* Video Card */}
+                {(item.type === ContentType.VIDEO || item.type === ContentType.DPP_VIDEO) && (
+                  <>
+                    <div className="relative aspect-video bg-black">
+                      <img src={item.thumbnailUrl} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" alt={item.title} />
+                      <div className="absolute bottom-3 right-3 w-10 h-10 bg-primary rounded-full flex items-center justify-center pl-1 shadow-lg shadow-black/50 group-hover:scale-110 transition-transform"><Play fill="white" size={18} /></div>
+                    </div>
+                    <div className="p-4 flex flex-col flex-1">
+                      <div className="flex items-center justify-between text-xs font-medium mb-3">
+                        <span className="text-gray-400 font-bold">{new Date(item.uploadDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        <div className="flex items-center gap-1 text-gray-400"><Clock size={12} /><span>{item.duration}</span></div>
+                      </div>
+                      <h3 className="text-sm font-bold text-white leading-snug line-clamp-2">{item.title}</h3>
+                    </div>
+                  </>
+                )}
+
+                {/* PDF Card */}
+                {item.type === ContentType.PDF && (
+                  <div className="flex flex-col h-full p-5 relative">
+                    <div className="flex-1 mb-6">
+                      <h3 className="font-bold text-lg text-gray-100 leading-snug mb-3 line-clamp-3">{item.title}</h3>
+                      <p className="text-xs text-gray-400 font-bold">{new Date(item.uploadDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                    </div>
+                    <div className="pt-4 flex items-center justify-between border-t border-border/50">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setPdfPreviewUrl(item.url || ''); }}
+                        className="w-full bg-[#1f2937] hover:bg-[#374151] hover:text-white text-gray-300 font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all text-sm border border-gray-700 active:scale-95"
+                        title="Preview PDF"
+                      >
+                        <FileText size={18} /> Preview
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Quiz Card */}
+                {item.type === ContentType.QUIZ && (
+                  <div className="flex flex-col h-full p-5">
+                    <div className="flex justify-between items-start mb-5">
+                      <div className="w-10 h-10 rounded-lg bg-[#1e1e24] flex items-center justify-center border border-gray-700/50"><BarChart2 className="text-green-500" size={20} /></div>
+                      <span className="bg-[#2a2b30] text-gray-400 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider border border-gray-700">UNLOCKED</span>
+                    </div>
+                    <div className="mb-4 flex-1">
+                      <h3 className="text-green-500 font-bold text-lg leading-snug mb-2 line-clamp-2">{item.title}</h3>
+                      <p className="text-xs text-blue-400 font-medium">Uploaded: {item.uploadDate}</p>
+                    </div>
+                    <div className="border-t border-gray-800 pt-4 mb-5">
+                      <div className="grid grid-cols-3 divide-x divide-gray-800 text-center">
+                        <div className="px-1"><p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Questions</p><p className="text-white font-bold text-lg">{item.questions || item.quizData?.length || 0}</p></div>
+                        <div className="px-1"><p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Marks</p><p className="text-green-500 font-bold text-lg">{item.marks || '-'}</p></div>
+                        <div className="px-1"><p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Time</p><p className="text-gray-300 font-bold text-xs mt-1">{item.duration || 'N/A'}</p></div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleStartQuiz(item); }}
+                      className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all uppercase tracking-wide text-sm shadow-lg shadow-green-900/20 active:scale-95"
+                    >
+                      <Play size={16} fill="white" /> Start
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full py-20 flex flex-col items-center justify-center border border-dashed border-gray-700 rounded-xl bg-surface/50">
+              <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-4"><FileText className="text-gray-500" size={32} /></div>
+              <div className="text-xl font-bold text-gray-300 mb-2">No Content Here</div>
+              <p className="text-gray-500 text-sm">Content for this section will be uploaded soon.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div >
   );

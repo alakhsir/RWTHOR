@@ -88,61 +88,63 @@ export const SubjectView = () => {
          </h1>
 
          {/* Unified Grid for All Contents & Chapters */}
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* All Contents Card */}
-            <div
-               onClick={() => navigate(`/batch/${batchId}/subject/${subjectId}/chapter/all`)}
-               className="bg-surface border border-border p-6 rounded-2xl hover:border-gray-500 cursor-pointer transition-all group relative overflow-hidden"
-            >
-               <div className="flex items-center gap-5">
-                  <div className="w-1.5 self-stretch bg-primary rounded-full shrink-0"></div>
-                  <div className="flex-1">
-                     <h3 className="font-bold text-xl text-white group-hover:text-primary transition-colors">All Contents</h3>
-                     <div className="flex flex-wrap items-center gap-3 text-sm mt-2 font-medium">
-                        <span className="text-blue-400">{totalStats.videos} Videos</span>
-                        <span className="text-gray-600">|</span>
-                        <span className="text-gray-400 group-hover:text-gray-300 transition-colors">{totalStats.exercises} Exercises</span>
-                        <span className="text-gray-600">|</span>
-                        <span className="text-gray-400 group-hover:text-gray-300 transition-colors">{totalStats.notes} Notes</span>
-                     </div>
-                  </div>
-               </div>
-            </div>
-
-            {/* Chapter Cards */}
-            {subjectChapters.map(chapter => {
-               const titleName = chapter.title.includes(' - ') ? chapter.title.split(' - ')[1] : chapter.title;
-               const chapterNum = String(chapter.order).padStart(2, '0');
-               const chapterStats = getCounts(chapter.id);
-
-               return (
-                  <div
-                     key={chapter.id}
-                     onClick={() => navigate(`/batch/${batchId}/subject/${subjectId}/chapter/${chapter.id}`)}
-                     className="bg-surface border border-border p-6 rounded-2xl hover:border-gray-500 cursor-pointer transition-all group relative overflow-hidden"
-                  >
-                     <div className="flex items-center gap-5">
-                        <div className="w-1.5 self-stretch bg-primary rounded-full shrink-0"></div>
-                        <div className="flex-1">
-                           <h3 className="font-bold text-xl text-white group-hover:text-primary transition-colors">
-                              {chapter.title.includes(' - ') ? titleName : chapter.title}
-                           </h3>
-                           {/* Note: User screenshot showed '|| Only PDF', I added it statically or logically? 
-                               Actually user screenshot shows "Mind Maps || Only PDF". 
-                               I will stick to generic title first but the layout validation is key. 
-                           */}
-                           <div className="flex flex-wrap items-center gap-3 text-sm mt-2 font-medium">
-                              <span className="text-blue-400">{chapterStats.videos} Videos</span>
-                              <span className="text-gray-600">|</span>
-                              <span className="text-gray-400 group-hover:text-gray-300 transition-colors">{chapterStats.exercises} Exercises</span>
-                              <span className="text-gray-600">|</span>
-                              <span className="text-gray-400 group-hover:text-gray-300 transition-colors">{chapterStats.notes} Notes</span>
-                           </div>
+         <div className="bg-transparent border border-gray-800 rounded-2xl p-4 lg:p-6 shadow-xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               {/* All Contents Card */}
+               <div
+                  onClick={() => navigate(`/batch/${batchId}/subject/${subjectId}/chapter/all`)}
+                  className="bg-surface border border-border p-6 rounded-2xl hover:border-gray-500 cursor-pointer transition-all group relative overflow-hidden"
+               >
+                  <div className="flex items-center gap-5">
+                     <div className="w-1.5 self-stretch bg-primary rounded-full shrink-0"></div>
+                     <div className="flex-1">
+                        <h3 className="font-bold text-xl text-white group-hover:text-primary transition-colors">All Contents</h3>
+                        <div className="flex flex-wrap items-center gap-3 text-sm mt-2 font-medium">
+                           <span className="text-blue-400">{totalStats.videos} Videos</span>
+                           <span className="text-gray-600">|</span>
+                           <span className="text-gray-400 group-hover:text-gray-300 transition-colors">{totalStats.exercises} Exercises</span>
+                           <span className="text-gray-600">|</span>
+                           <span className="text-gray-400 group-hover:text-gray-300 transition-colors">{totalStats.notes} Notes</span>
                         </div>
                      </div>
                   </div>
-               );
-            })}
+               </div>
+
+               {/* Chapter Cards */}
+               {subjectChapters.map(chapter => {
+                  const titleName = chapter.title.includes(' - ') ? chapter.title.split(' - ')[1] : chapter.title;
+                  const chapterNum = String(chapter.order).padStart(2, '0');
+                  const chapterStats = getCounts(chapter.id);
+
+                  return (
+                     <div
+                        key={chapter.id}
+                        onClick={() => navigate(`/batch/${batchId}/subject/${subjectId}/chapter/${chapter.id}`)}
+                        className="bg-surface border border-border p-6 rounded-2xl hover:border-gray-500 cursor-pointer transition-all group relative overflow-hidden"
+                     >
+                        <div className="flex items-center gap-5">
+                           <div className="w-1.5 self-stretch bg-primary rounded-full shrink-0"></div>
+                           <div className="flex-1">
+                              <h3 className="font-bold text-xl text-white group-hover:text-primary transition-colors">
+                                 {chapter.title.includes(' - ') ? titleName : chapter.title}
+                              </h3>
+                              {/* Note: User screenshot showed '|| Only PDF', I added it statically or logically? 
+                                  Actually user screenshot shows "Mind Maps || Only PDF". 
+                                  I will stick to generic title first but the layout validation is key. 
+                              */}
+                              <div className="flex flex-wrap items-center gap-3 text-sm mt-2 font-medium">
+                                 <span className="text-blue-400">{chapterStats.videos} Videos</span>
+                                 <span className="text-gray-600">|</span>
+                                 <span className="text-gray-400 group-hover:text-gray-300 transition-colors">{chapterStats.exercises} Exercises</span>
+                                 <span className="text-gray-600">|</span>
+                                 <span className="text-gray-400 group-hover:text-gray-300 transition-colors">{chapterStats.notes} Notes</span>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  );
+               })}
+            </div>
          </div>
       </div>
    );
