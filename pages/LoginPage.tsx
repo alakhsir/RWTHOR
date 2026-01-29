@@ -11,13 +11,20 @@ export const LoginPage = () => {
     const [error, setError] = useState<string | null>(null);
     const [resendTimer, setResendTimer] = useState(30);
 
-    const { signInWithEmailOtp, verifyEmailOtp, signInWithGoogle } = useAuth();
+    const { signInWithEmailOtp, verifyEmailOtp, signInWithGoogle, user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
     const from = location.state?.from?.pathname || '/';
 
     // --- Logic ---
+
+    // Redirect if already logged in
+    useEffect(() => {
+        if (user && !authLoading) {
+            navigate(from, { replace: true });
+        }
+    }, [user, authLoading, navigate, from]);
 
     useEffect(() => {
         let timer: NodeJS.Timeout;

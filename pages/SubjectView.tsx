@@ -99,7 +99,7 @@ export const SubjectView = () => {
                      <div className="w-1.5 self-stretch bg-primary rounded-full shrink-0"></div>
                      <div className="flex-1">
                         <h3 className="font-bold text-xl text-white group-hover:text-primary transition-colors">All Contents</h3>
-                        <div className="flex flex-wrap items-center gap-3 text-sm mt-2 font-medium">
+                        <div className="flex flex-nowrap items-center gap-2 text-xs sm:text-sm sm:gap-3 mt-2 font-medium whitespace-nowrap">
                            <span className="text-blue-400">{totalStats.videos} Videos</span>
                            <span className="text-gray-600">|</span>
                            <span className="text-gray-400 group-hover:text-gray-300 transition-colors">{totalStats.exercises} Exercises</span>
@@ -132,7 +132,7 @@ export const SubjectView = () => {
                                   Actually user screenshot shows "Mind Maps || Only PDF". 
                                   I will stick to generic title first but the layout validation is key. 
                               */}
-                              <div className="flex flex-wrap items-center gap-3 text-sm mt-2 font-medium">
+                              <div className="flex flex-nowrap items-center gap-2 text-xs sm:text-sm sm:gap-3 mt-2 font-medium whitespace-nowrap">
                                  <span className="text-blue-400">{chapterStats.videos} Videos</span>
                                  <span className="text-gray-600">|</span>
                                  <span className="text-gray-400 group-hover:text-gray-300 transition-colors">{chapterStats.exercises} Exercises</span>

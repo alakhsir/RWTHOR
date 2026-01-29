@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { supabase } from '../services/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import { Profile } from '../types';
@@ -65,6 +66,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         return () => subscription.unsubscribe();
+    }, []);
+
+    // Handle Deep Links (For Mobile OAuth Redirect)
+    useEffect(() => {
+        if (!Capacitor.isNativePlatform()) return;
+
+        import('@capacitor/app').then(({ App }) => {
+            App.addListener('appUrlOpen', async (data) => {
+                if (data.url.includes('google-auth')) {
+                    try {
+                        const urlObj = new URL(data.url);
+
+                        // Check for PKCE Code first (Common in modern Supabase flows)
+                        const searchParams = new URLSearchParams(urlObj.search);
+                        const code = searchParams.get('code');
+
+                        if (code) {
+                            const { error } = await supabase.auth.exchangeCodeForSession(code);
+                            if (error) console.error('Error exchanging code for session:', error);
+                            // Session setup successful, auth listener will update state
+
+                            // Close browser if needed (optional, effectively handled by app switch)
+                        } else {
+                            // Fallback: Implicit Flow (Tokens in Hash)
+                            let hash = urlObj.hash;
+                            if (hash.startsWith('#')) hash = hash.substring(1);
+
+                            const params = new URLSearchParams(hash);
+                            const accessToken = params.get('access_token');
+                            const refreshToken = params.get('refresh_token');
+
+                            if (accessToken && refreshToken) {
+                                const { error } = await supabase.auth.setSession({
+                                    access_token: accessToken,
+                                    refresh_token: refreshToken,
+                                });
+                                if (error) console.error('Error setting session from deep link:', error);
+                            } else {
+                                // Fallback: Check search params for tokens
+                                const access = searchParams.get('access_token');
+                                const refresh = searchParams.get('refresh_token');
+
+                                if (access && refresh) {
+                                    await supabase.auth.setSession({
+                                        access_token: access,
+                                        refresh_token: refresh,
+                                    });
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error handling deep link:', e);
+                    }
+                }
+            });
+        });
     }, []);
 
     // Safety timeout to prevent infinite loading
@@ -182,13 +239,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ? 'com.rwthor.app://google-auth'
             : window.location.origin;
 
-        const { error } = await supabase.auth.signInWithOAuth({
+        const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
                 redirectTo,
-                skipBrowserRedirect: isNative // For mobile, we might want to handle it differently, or just let browser open
+                skipBrowserRedirect: isNative
             }
         });
+
+        if (isNative && data?.url) {
+            // Open the auth URL in an external browser/custom tab
+            await Browser.open({ url: data.url });
+        }
+
         return { error };
     };
 

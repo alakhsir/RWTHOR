@@ -344,8 +344,8 @@ export const ChapterView = () => {
               </div>
             </div>
             <div className="flex gap-4 w-full">
-              <button onClick={() => setReviewMode(true)} className="flex-1 bg-[#1f2937] hover:bg-[#374151] text-white font-bold py-4 rounded-full text-sm tracking-wide shadow-lg transition-transform active:scale-95 border border-gray-700">REVIEW ANSWERS</button>
-              <button onClick={() => setActiveQuiz(null)} className="flex-1 bg-white hover:bg-gray-100 text-black font-extrabold py-4 rounded-full text-sm tracking-wide shadow-lg transition-transform active:scale-95">RETURN TO BATCH</button>
+              <button onClick={() => setReviewMode(true)} className="flex-1 bg-[#1f2937] hover:bg-[#374151] text-white font-bold py-3 sm:py-4 rounded-full text-[10px] sm:text-sm tracking-wide shadow-lg transition-transform active:scale-95 border border-gray-700">REVIEW ANSWERS</button>
+              <button onClick={() => setActiveQuiz(null)} className="flex-1 bg-white hover:bg-gray-100 text-black font-extrabold py-3 sm:py-4 rounded-full text-[10px] sm:text-sm tracking-wide shadow-lg transition-transform active:scale-95">RETURN TO BATCH</button>
             </div>
           </div>
         </div>
@@ -367,7 +367,7 @@ export const ChapterView = () => {
             </div>
             <button className="lg:hidden p-1.5 text-white hover:bg-white/10 rounded" onClick={() => setIsSidebarOpen(!isSidebarOpen)}><Menu size={20} /></button>
             {reviewMode ? (
-              <button onClick={() => setReviewMode(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 lg:px-6 lg:py-2 rounded font-bold text-[10px] lg:text-sm uppercase tracking-wider shadow-lg whitespace-nowrap">Exit Review</button>
+              <button onClick={() => setReviewMode(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 lg:px-6 lg:py-2 rounded font-bold text-[10px] lg:text-sm uppercase tracking-wider shadow-lg whitespace-nowrap"><span className="lg:hidden">EXIT</span><span className="hidden lg:inline">EXIT REVIEW</span></button>
             ) : (
               <button onClick={() => setQuizSubmitted(true)} className="bg-[#ef4444] hover:bg-[#dc2626] text-white px-3 py-1.5 lg:px-6 lg:py-2 rounded font-bold text-[10px] lg:text-sm uppercase tracking-wider shadow-lg shadow-red-900/20 whitespace-nowrap">Submit</button>
             )}
@@ -701,7 +701,7 @@ export const ChapterView = () => {
             <div className="col-span-full py-20 flex flex-col items-center justify-center border border-dashed border-gray-700 rounded-xl bg-surface/50">
               <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-4"><FileText className="text-gray-500" size={32} /></div>
               <div className="text-xl font-bold text-gray-300 mb-2">No Content Here</div>
-              <p className="text-gray-500 text-sm">Content for this section will be uploaded soon.</p>
+              <p className="text-gray-500 text-sm text-center px-6">Content for this section will be uploaded soon.</p>
             </div>
           )}
         </div>
