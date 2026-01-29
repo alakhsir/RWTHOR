@@ -9,7 +9,10 @@ interface AuthContextType {
     profile: Profile | null;
     loading: boolean;
     signInWithOtp: (phone: string) => Promise<{ error: any }>;
+    signInWithEmailOtp: (email: string) => Promise<{ error: any }>;
+    signInWithGoogle: () => Promise<{ error: any }>;
     verifyOtp: (phone: string, token: string) => Promise<{ error: any }>;
+    verifyEmailOtp: (email: string, token: string) => Promise<{ error: any }>;
     signOut: () => Promise<void>;
     updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>;
 }
@@ -156,13 +159,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProfile(null);
     };
 
+    const signInWithEmailOtp = async (email: string) => {
+        const { error } = await supabase.auth.signInWithOtp({
+            email,
+        });
+        return { error };
+    };
+
+    const verifyEmailOtp = async (email: string, token: string) => {
+        const { data, error } = await supabase.auth.verifyOtp({
+            email,
+            token,
+            type: 'email',
+        });
+        return { data, error };
+    };
+
+    const signInWithGoogle = async () => {
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin
+            }
+        });
+        return { error };
+    };
+
     const value = {
         session,
         user,
         profile,
         loading,
         signInWithOtp,
+        signInWithEmailOtp,
+        signInWithGoogle,
         verifyOtp,
+        verifyEmailOtp,
         signOut,
         updateProfile,
     };

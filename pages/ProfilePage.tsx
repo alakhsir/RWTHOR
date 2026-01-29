@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { User, Phone, Save, Loader2, Award, Calendar } from 'lucide-react';
+import { User, Mail, Save, Loader2, Award, Calendar } from 'lucide-react';
 
 export const ProfilePage = () => {
-    const { profile, updateProfile, loading: authLoading } = useAuth();
+    const { profile, user, updateProfile, loading: authLoading } = useAuth();
 
     const [fullName, setFullName] = useState('');
     const [saving, setSaving] = useState(false);
@@ -108,12 +108,12 @@ export const ProfilePage = () => {
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
-                                <Phone className="w-4 h-4 text-indigo-400" />
-                                Phone Number
+                                <Mail className="w-4 h-4 text-indigo-400" />
+                                Email Address
                             </label>
                             <input
                                 type="text"
-                                value={profile?.phone || ''}
+                                value={user?.email || ''}
                                 disabled
                                 className="w-full px-4 py-3 bg-black/40 border border-gray-800 rounded-xl text-gray-400 cursor-not-allowed font-mono text-sm"
                             />

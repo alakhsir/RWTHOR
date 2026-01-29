@@ -9,6 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.0.2",
+    "@capacitor/cli": "^8.0.2",
+    "@capacitor/core": "^8.0.2",
     "@supabase/supabase-js": "2.39.7",
     "dotenv": "^17.2.3",
     "lucide-react": "^0.562.0",
@@ -20,6 +23,7 @@
     "react-router-dom": "^7.12.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "10.4.23",
